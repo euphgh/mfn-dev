@@ -1,4 +1,5 @@
 from enum import Enum
+
 # hierarchy instance name
 # mutable
 class HierInstPath:

@@ -30,6 +30,39 @@ class PortXmlReader:
                 return tree
         else:
             return None
+
+# data struct for end_block in PortXml
+# <end_block block_inst_name="uvpep" block_class_name="vpep" port_name="DBUS_VPEP_daisychain" port_signal_name="DBUS_VPEP_daisychain_data" port_signal_dir="input" port_dir="receive"/>
+class EndBlock:
+    def __init__(self) -> None:
+        self.instPath: HierInstPath # module name can be searched by instPath
+        self.portBundle:str
+        self.portSignal:str
+        self.dir:PortDir = PortDir.INPUT
+
+# data struct for wire element in PortXml
+# <wire name="PERFMON_CAC_SelfRefClks_p1_active" high_bit="0" low_bit="0">
+# 	<end_block block_inst_name="umc" block_class_name="umc" port_name="PERFMON_CAC_SelfRefClks_p1" port_signal_name="PERFMON_CAC_SelfRefClks_p1_active" port_signal_dir="output" port_dir="transmit"/>
+# 	<end_block block_inst_name="umcdat" block_class_name="umcdat" port_name="PERFMON_CAC_SelfRefClks_p1" port_signal_name="PERFMON_CAC_SelfRefClks_p1_active" port_signal_dir="output" port_dir="transmit"/>
+# </wire>
+class WireConnec:
+    def __init__(self) -> None:
+        self.wireName:str = ""
+        self.range:tuple[int, int] = (0, 0)
+        self.outer:EndBlock         # module port
+        self.inners:list[EndBlock]  # ports of instance in this module, connect to outer
+
+# data struct for Bundle element in PortXml
+class BundleConnec:
+    def __init__(self) -> None:
+        self.bundleName: str = ""
+        self.wireList:list[WireConnec] = []
+
+class PortXmlParser:
+    def __init__(self, portXml: XmlDoc) -> None:
+        self.xmlDoc:XmlDoc = portXml
+        root = portXml.getroot()
+        bundleElements = root.findall("bundle")
     
 class InstanceModuleMap:
     def __init__(self, yamlFile:str) -> None:
@@ -82,39 +115,3 @@ class InstancePort:
 
     def __str__(self) -> str:
         return ""
-
-class DesignManager:
-    def __init__(self, yamlFile:str, xmlDir:str) -> None:
-        self.instPath2Module = InstanceModuleMap(yamlFile)
-        self.portXmls = PortXmlReader(xmlDir)
-        self.portSet: set[InstancePort]
-        self.leafModuleSet:set[str]
-    
-    def xmlDocOf(self, id: HierInstPath|str)-> Optional[XmlDoc]:
-        if isinstance(id, HierInstPath):
-            moduleName = self.instPath2Module[id]
-            if (moduleName == None): return None
-            return self.portXmls[moduleName]
-        else: # id is str
-            return self.portXmls[id]
-
-    def fillPortConnec(self, instPath:HierInstPath, moduleName:str, dir:PortDir, isLeaf: bool)-> list[InstancePort]:
-        if (isLeaf): return []
-        tree = self.xmlDocOf(moduleName)
-        assert tree is not None
-        # assumpt bia log port name is same with bundle name, not wire name
-        # one bundle only have one wire and bundle name is same with wire name
-        rootEle = tree.getroot()
-        rootEle.find("")
-        return []
-    
-    def addInstancePort(self, instPathStr:str, portName:str , dir: PortDir)->Optional[InstancePort]:
-        instPath:HierInstPath = HierInstPath(instPathStr)
-        moduleName = self.instPath2Module[instPath]
-        if moduleName == None:
-            return None
-        isLeaf:bool = moduleName in self.leafModuleSet
-        connec:list[InstancePort] = self.fillPortConnec(instPath, moduleName, dir, isLeaf)
-        instancePort = InstancePort(instPath, moduleName, portName, dir, isLeaf, connec)
-        self.portSet.add(instancePort)
-        return instancePort
