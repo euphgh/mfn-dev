@@ -2,6 +2,7 @@ import sys
 from DesignTree import *
 from typing import Optional
 import re
+from io import StringIO
 
 
 class InputParser:
@@ -51,6 +52,17 @@ class InputParser:
         return True
 
 
+def outputsFormat(instPort: InstancePort) -> str:
+    ss = StringIO()
+    ss.write(f"{instPort.dir}: {instPort.instPath}, {instPort.portName}\n")
+    for leaf in instPort.leaves():
+        ss.write(f"{leaf.instPath}, {bundleName}\n")
+
+    ret = ss.getvalue()
+    ss.close()
+    return ret
+
+
 if __name__ == "__main__":
     multidriveLog: str = sys.argv[1]
     yamlFile: str = sys.argv[2]
@@ -59,17 +71,16 @@ if __name__ == "__main__":
     inputParser = InputParser(multidriveLog)
     designTree = DesignManager(yamlFile, xmlDir, leaflistFile)
     while inputParser.readLine():
+        print("================================================")
         hierPrefix = inputParser.getHier()
         portSet: set[InstancePort] = set()
         while 1:
             result = inputParser.nextItem()
             if result is None:
                 break
-            instanceName, portName, dirStr = result
-            instancePort = designTree.addInstancePort(
-                f"{hierPrefix}.{instanceName}", portName, PortDir.fromStr(dirStr)
+            instName, bundleName, bundleDir = result
+            instPortList = designTree.addInstancePortFromBundle(
+                f"{hierPrefix}.{instName}", bundleName, PortDir.fromStr(bundleDir)
             )
-            assert instancePort is not None
-            for leaf in instancePort.leaves():
-                print(leaf)
-            print()
+            for instPort in instPortList:
+                print(outputsFormat(instPort))
