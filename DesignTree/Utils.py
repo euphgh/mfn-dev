@@ -57,10 +57,12 @@ class PortDir(Enum):
             return PortDir.INPUT
         if dir == "transmit":
             return PortDir.OUTPUT
-        if dir == "input":
-            return PortDir.INPUT
         if dir == "output":
             return PortDir.OUTPUT
+        if dir == "input":
+            return PortDir.INPUT
         if dir == "inout":
+            return PortDir.INOUT
+        if dir == "bidirect":
             return PortDir.INOUT
         assert False, f"Direct str {dir} is not expected"
