@@ -70,8 +70,8 @@ if __name__ == "__main__":
     leaflistFile: str = sys.argv[4]
     inputParser = InputParser(multidriveLog)
     designTree = DesignManager(yamlFile, xmlDir, leaflistFile)
+    outpustFile = open("outputs.txt", "w")
     while inputParser.readLine():
-        print("================================================")
         hierPrefix = inputParser.getHier()
         portSet: set[InstancePort] = set()
         while 1:
@@ -79,6 +79,7 @@ if __name__ == "__main__":
             if result is None:
                 break
             instName, bundleName, bundleDir = result
+            instPortList = None
             if hierPrefix != instName:
                 instPortList = designTree.addInstancePortFromBundle(
                     f"{hierPrefix}.{instName}", bundleName, PortDir.fromStr(bundleDir)
@@ -87,6 +88,6 @@ if __name__ == "__main__":
                 instPortList = designTree.addInstancePortFromBundle(
                     f"{hierPrefix}", bundleName, PortDir.fromStr(bundleDir)
                 )
-            assert instPortList.__len__() != 0
             for instPort in instPortList:
-                print(outputsFormat(instPort))
+                outpustFile.write(outputsFormat(instPort))
+    outpustFile.close()
