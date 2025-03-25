@@ -54,9 +54,9 @@ class InputParser:
 
 def outputsFormat(instPort: InstancePort) -> str:
     ss = StringIO()
-    ss.write(f"{instPort.wireDir}: {instPort.instPath}, {instPort.portWireName}\n")
     for leaf in instPort.leaves():
-        ss.write(f"{leaf.instPath}, {bundleName}\n")
+        instPath = leaf.instPath.join("/")
+        ss.write(f"{instPath}/{bundleName}\n")
 
     ret = ss.getvalue()
     ss.close()
@@ -65,15 +65,13 @@ def outputsFormat(instPort: InstancePort) -> str:
 
 if __name__ == "__main__":
     multidriveLog: str = sys.argv[1]
-    yamlFile: str = sys.argv[2]
-    xmlDir: str = sys.argv[3]
-    leaflistFile: str = sys.argv[4]
+    xmlDir: str = sys.argv[2]
+    yamlFile: str = f"{xmlDir}/logical_info.yml"
     inputParser = InputParser(multidriveLog)
-    designTree = DesignManager(yamlFile, xmlDir, leaflistFile)
+    designTree = DesignManager(yamlFile, xmlDir)
     outpustFile = open("outputs.txt", "w")
     while inputParser.readLine():
         container = inputParser.getContainer()
-        portSet: set[InstancePort] = set()
         while 1:
             result = inputParser.nextItem()
             if result is None:

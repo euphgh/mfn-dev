@@ -46,6 +46,9 @@ class HierInstPath:
         else:
             return "." + ".".join(self.nameList)
 
+    def join(self, split: str) -> str:
+        return split.join(self.nameList)
+
     def append(self, tail: "str|HierInstPath") -> None:
         if isinstance(tail, str):
             self.nameList.append(tail)

@@ -5,17 +5,13 @@ from DesignTree.PortXml import *
 
 class DesignManager:
 
-    def __init__(self, yamlFile: str, xmlDir: str, leafListFile: str) -> None:
+    def __init__(self, yamlFile: str, xmlDir: str) -> None:
         self.instPath2Module = InstanceModuleMap(yamlFile)
         self.portXmls = PortXmlReader(xmlDir)
         self.portSet = set[InstancePort]()
-        self.leafModuleSet = set[str]()
-        with open(leafListFile, "r", encoding="utf-8") as leafList:
-            # each line in leafList is <leaf module name>_leaf.v
-            for line in leafList:
-                # example: foo_leaf.v[0:-7] = foo
-                leafName = line.strip()[:-7]
-                self.leafModuleSet.add(leafName)
+
+    def isLeaf(self, moduleName: str):
+        return self.instPath2Module.isLeaf(moduleName)
 
     def xmlDocOf(self, id: HierInstPath | str) -> Optional[PortXmlParser]:
         if isinstance(id, HierInstPath):
@@ -55,7 +51,9 @@ class DesignManager:
         res = list[InstancePort]()
         for inner in wireConnec.inners:
             innerAbsInstPath = aInstPath + inner.instPath
-            if inner.moduleName in self.leafModuleSet:
+            innerIsLeaf = self.isLeaf(inner.moduleName)
+            assert innerIsLeaf is not None
+            if innerIsLeaf:
                 # port of leaf module
                 leafPort = self.__newInstancePort(
                     innerAbsInstPath,
@@ -175,7 +173,8 @@ class DesignManager:
         aInstPath: HierInstPath = HierInstPath(absInstPathStr, True)
         moduleName = self.instPath2Module[aInstPath]
         assert moduleName is not None, f"not found instPath: {aInstPath}"
-        isLeaf: bool = moduleName in self.leafModuleSet
+        isLeaf = self.isLeaf(moduleName)
+        assert isLeaf is not None
         if isLeaf:
             return self.__fromLeafBlockBundle(
                 aInstPath, moduleName, bundleName, bundleDir
