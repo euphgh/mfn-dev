@@ -1,5 +1,4 @@
 from enum import Enum
-import copy
 import logging
 
 
@@ -40,49 +39,40 @@ logger.addHandler(errorHandler)
 assert isinstance(logger, CondLogger)
 cl: CondLogger = logger
 
-# hierarchy instance name
-# mutable
+
 class HierInstPath:
-    # fullName: foo.bar
-    # if foo is top module name, the parentModuleName is "/", that is abs path
-    # else foo is normal module name, the parentModuleName is "foo", is a relative path
-    # abs: absolute path or relative path
-    def __init__(self, fullName: str, isAbs: bool) -> None:
-        self.names = tuple(fullName.split("."))
-        self.isAbs = isAbs
+
+    def __init__(self, module: str, instances: "str|tuple[str, ...]" = ()) -> None:
+        self.module = module
+        if isinstance(instances, str):
+            self.instances = tuple(instances.split("."))
+        else:
+            self.instances = instances
 
     def __str__(self) -> str:
-        if self.isAbs:
-            return "/" + ".".join(self.names)
-        else:
-            return "." + ".".join(self.names)
+        return self.join(".")
 
     def join(self, split: str) -> str:
-        return split.join(self.names)
+        return split.join((self.module,) + self.instances)
 
     def parent(self) -> "HierInstPath":
-        parentPath = copy.deepcopy(self)
-        assert parentPath.names.__len__() > 1
-        parentPath.names = parentPath.names[:-1]
-        return parentPath
+        assert self.instances.__len__() > 0
+        return HierInstPath(self.module, self.instances[:-1])
+
+    def addInst(self, that: str):
+        return HierInstPath(self.module, self.instances + (that,))
 
     def __eq__(self, value: object) -> bool:
         if isinstance(value, HierInstPath):
             return self.__str__() == value.__str__()
         return False
 
-    def __add__(self, that: "HierInstPath"):
-        assert self.isAbs or not that.isAbs
-        res = copy.deepcopy(self)
-        res.names += that.names
-        return res
-
     def __hash__(self) -> int:
         return hash(self.__str__())
 
     @staticmethod
     def empty() -> "HierInstPath":
-        return HierInstPath("", False)
+        return HierInstPath("", ())
 
 
 class PortDir(Enum):

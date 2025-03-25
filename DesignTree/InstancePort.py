@@ -54,22 +54,19 @@ class InstanceModuleMap:
             return None
 
     def __getitem__(self, instPath: HierInstPath) -> Optional[str]:
-        assert instPath.isAbs
-        if instPath.names.__len__() == 0:
-            return None
-        if instPath.names.__len__() == 1:
-            return instPath.names[0]
+        if instPath.instances.__len__() == 0:
+            if instPath.module not in self.nodes:
+                return None
+            return instPath.module
 
-        index = 0
-        node: Optional[ModuleNode] = self.nodes[instPath.names[index]]
-        while node != None and index < instPath.names.__len__() - 1:
-            index += 1
-            node = node.next[instPath.names[index]]
-
+        node: Optional[ModuleNode] = self.nodes.get(instPath.module, None)
+        for instanceName in instPath.instances:
+            if node == None:
+                break
+            node = node.next.get(instanceName, None)
         if node is None:
             return None
-        else:
-            return node.name
+        return node.name
 
 # wire unit, not bundle
 class InstancePort:

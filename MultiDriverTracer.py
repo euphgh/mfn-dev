@@ -84,11 +84,13 @@ if __name__ == "__main__":
             instPortList = None
             if container != instName:
                 instPortList = designTree.addInstancePortFromBundle(
-                    f"{container}.{instName}", bundleName, PortDir.fromStr(bundleDir)
+                    HierInstPath(container, instName),
+                    bundleName,
+                    PortDir.fromStr(bundleDir),
                 )
             else:
                 instPortList = designTree.addInstancePortFromBundle(
-                    f"{container}", bundleName, PortDir.fromStr(bundleDir)
+                    HierInstPath(container), bundleName, PortDir.fromStr(bundleDir)
                 )
             for instPort in instPortList:
                 outpustFile.write(outputsFormat(instPort))

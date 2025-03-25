@@ -47,18 +47,18 @@ class DesignManager:
 
     def recursivePortWire(
         self,
-        aInstPath: HierInstPath,
+        instPath: HierInstPath,
         wireConnec: WireConnec,
     ) -> list[InstancePort]:
         res = list[InstancePort]()
         for inner in wireConnec.inners:
-            innerAbsInstPath = aInstPath + inner.instPath
+            innerInstPath = instPath.addInst(inner.instName)
             innerIsLeaf = self.isLeaf(inner.moduleName)
             assert innerIsLeaf is not None
             if innerIsLeaf:
                 # port of leaf module
                 leafPort = self.__newInstancePort(
-                    innerAbsInstPath,
+                    innerInstPath,
                     inner.moduleName,
                     inner.portWireName,
                     inner.wireDir,
@@ -68,17 +68,17 @@ class DesignManager:
                 )
                 res.append(leafPort)
             else:
-                innerParser = self.xmlDocOf(innerAbsInstPath)
+                innerParser = self.xmlDocOf(innerInstPath)
                 assert innerParser
                 innerWireConnec = innerParser.findByWire(inner.portWireName)
                 assert innerWireConnec is not None
                 connec = self.recursivePortWire(
-                    innerAbsInstPath,
+                    innerInstPath,
                     innerWireConnec,
                 )
                 # In contrast to the leaf module
                 containerPort = self.__newInstancePort(
-                    innerAbsInstPath,
+                    innerInstPath,
                     inner.moduleName,
                     inner.portWireName,
                     inner.wireDir,
@@ -110,7 +110,7 @@ class DesignManager:
             return [portWire]
         for wireConnec in bundleConnec.wireList:
             for endBlock in wireConnec.inners:
-                if parentPath + endBlock.instPath == aInstPath:
+                if parentPath.addInst(endBlock.instName) == aInstPath:
                     cl.warn_if(
                         endBlock.bundleDir != bundleDir,
                         f"port xml end_block {endBlock.portWireName}'s port_dir {endBlock.bundleDir} is diff with expected {bundleDir}",
@@ -134,7 +134,7 @@ class DesignManager:
 
     def __fromContainerBundle(
         self,
-        absInstPath: HierInstPath,
+        instPath: HierInstPath,
         moduleName: str,
         bundleName: str,
         bundleDir: PortDir,
@@ -156,13 +156,13 @@ class DesignManager:
             assert moduleName == wireConnec.outer.moduleName
             assert wireConnec.bundleLink is not None
 
-            connec: list[InstancePort] = self.recursivePortWire(absInstPath, wireConnec)
+            connec: list[InstancePort] = self.recursivePortWire(instPath, wireConnec)
             cl.warn_if(
                 connec.__len__() == 0,
-                f"{absInstPath}_port.xml's wire {wireConnec.name} is not connected",
+                f"{instPath}_port.xml's wire {wireConnec.name} is not connected",
             )
             outerInstPort = self.__newInstancePort(
-                absInstPath,
+                instPath,
                 moduleName,
                 portWireName,
                 wireDir,
@@ -174,18 +174,17 @@ class DesignManager:
         return instPortList
 
     def addInstancePortFromBundle(
-        self, absInstPathStr: str, bundleName: str, bundleDir: PortDir
+        self, instPath: HierInstPath, bundleName: str, bundleDir: PortDir
     ) -> list[InstancePort]:
-        aInstPath: HierInstPath = HierInstPath(absInstPathStr, True)
-        moduleName = self.instPath2Module[aInstPath]
-        assert moduleName is not None, f"not found instPath: {aInstPath}"
+        moduleName = self.instPath2Module[instPath]
+        assert moduleName is not None, f"not found instPath: {instPath}"
         isLeaf = self.isLeaf(moduleName)
         assert isLeaf is not None
         if isLeaf:
             return self.__fromLeafBlockBundle(
-                aInstPath, moduleName, bundleName, bundleDir
+                instPath, moduleName, bundleName, bundleDir
             )
         else:
             return self.__fromContainerBundle(
-                aInstPath, moduleName, bundleName, bundleDir
+                instPath, moduleName, bundleName, bundleDir
             )

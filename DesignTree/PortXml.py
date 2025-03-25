@@ -1,4 +1,4 @@
-from DesignTree.Utils import PortDir, HierInstPath, cl
+from DesignTree.Utils import PortDir, cl
 from xml.etree.ElementTree import ElementTree as XmlDoc
 from xml.etree.ElementTree import Element
 from xml.etree import ElementTree as ET
@@ -10,7 +10,7 @@ import os
 # <end_block block_inst_name="uvpep" block_class_name="vpep" port_name="DBUS_VPEP_daisychain" port_signal_name="DBUS_VPEP_daisychain_data" port_signal_dir="input" port_dir="receive"/>
 class EndBlock:
     def __init__(self) -> None:
-        self.instPath = HierInstPath.empty()
+        self.instName: str
         self.moduleName = str()
         self.portBundleName = str()
         self.portWireName = str()
@@ -19,7 +19,7 @@ class EndBlock:
         self.wireLink: Optional[WireConnec] = None  # back link
 
     def __str__(self) -> str:
-        return f"{self.instPath}:{self.moduleName}:{self.portWireName}({self.wireDir}):{self.portBundleName}({self.bundleDir})"
+        return f"{self.instName}:{self.moduleName}:{self.portWireName}({self.wireDir}):{self.portBundleName}({self.bundleDir})"
 
 
 # data struct for wire element in PortXml
@@ -75,9 +75,7 @@ class PortXmlParser:
                 endBlockDirect = set[PortDir]()
                 for endBlockElem in wireElem.findall("end_block"):
                     endBlock = EndBlock()
-                    endBlock.instPath = HierInstPath(
-                        endBlockElem.attrib["block_inst_name"], False
-                    )
+                    endBlock.instName = endBlockElem.attrib["block_inst_name"]
                     endBlock.moduleName = endBlockElem.attrib["block_class_name"]
                     endBlock.portBundleName = endBlockElem.attrib["port_name"]
                     endBlock.portWireName = endBlockElem.attrib["port_signal_name"]
