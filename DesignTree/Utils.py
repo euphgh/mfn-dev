@@ -48,28 +48,22 @@ class HierInstPath:
     # else foo is normal module name, the parentModuleName is "foo", is a relative path
     # abs: absolute path or relative path
     def __init__(self, fullName: str, isAbs: bool) -> None:
-        self.nameList = fullName.split(".")
+        self.names = tuple(fullName.split("."))
         self.isAbs = isAbs
 
     def __str__(self) -> str:
         if self.isAbs:
-            return "/" + ".".join(self.nameList)
+            return "/" + ".".join(self.names)
         else:
-            return "." + ".".join(self.nameList)
+            return "." + ".".join(self.names)
 
     def join(self, split: str) -> str:
-        return split.join(self.nameList)
-
-    def append(self, tail: "str|HierInstPath") -> None:
-        if isinstance(tail, str):
-            self.nameList.append(tail)
-        else:
-            self.nameList.extend(tail.nameList)
+        return split.join(self.names)
 
     def parent(self) -> "HierInstPath":
         parentPath = copy.deepcopy(self)
-        assert parentPath.nameList.__len__() > 1
-        parentPath.nameList.pop()
+        assert parentPath.names.__len__() > 1
+        parentPath.names = parentPath.names[:-1]
         return parentPath
 
     def __eq__(self, value: object) -> bool:
@@ -80,7 +74,7 @@ class HierInstPath:
     def __add__(self, that: "HierInstPath"):
         assert self.isAbs or not that.isAbs
         res = copy.deepcopy(self)
-        res.append(that)
+        res.names += that.names
         return res
 
     def __hash__(self) -> int:

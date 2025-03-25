@@ -56,13 +56,13 @@ class InstanceModuleMap:
 
     def __getitem__(self, instPath: HierInstPath) -> Optional[str]:
         assert instPath.isAbs
-        if instPath.nameList.__len__() == 0:
+        if instPath.names.__len__() == 0:
             return None
-        if instPath.nameList.__len__() == 1:
-            return instPath.nameList[0]
+        if instPath.names.__len__() == 1:
+            return instPath.names[0]
         currentDict = None
-        currentContainerName = instPath.nameList[0]
-        for name in instPath.nameList[1:]:
+        currentContainerName = instPath.names[0]
+        for name in instPath.names[1:]:
             currentDict = self.containerDict[currentContainerName]
             currentContainerName = currentDict[name]
         return currentContainerName
