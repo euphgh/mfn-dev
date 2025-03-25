@@ -6,21 +6,40 @@ from DesignTree.PortXml import *
 class DesignManager:
 
     def __init__(self, yamlFile: str, xmlDir: str) -> None:
-        self.instPath2Module = InstanceModuleMap(yamlFile)
-        self.portXmls = PortXmlReader(xmlDir)
+        self.hierTree = HierTree(yamlFile)
+        self.portXmls = PortXmlReader(xmlDir, self.hierTree.containers())
         self.portSet = set[InstancePort]()
 
-    def isLeaf(self, moduleName: str):
-        return self.instPath2Module.isLeaf(moduleName)
+    # get module name of for the HierInstPath
+    def moduleName(self, instPath: HierInstPath):
+        return self.hierTree.moduleName(instPath)
+
+    def isLeaf(self, id: str | HierInstPath):
+        if isinstance(id, str):
+            return self.hierTree.isLeaf(id)
+        else:
+            module = self.moduleName(id)
+            if module:
+                return self.hierTree.isLeaf(module)
+            else:
+                return False
 
     def xmlDocOf(self, id: HierInstPath | str) -> Optional[PortXmlParser]:
         if isinstance(id, HierInstPath):
-            moduleName = self.instPath2Module[id]
+            moduleName = self.moduleName(id)
             if moduleName == None:
                 return None
             return self.portXmls[moduleName]
         else:  # id is str
             return self.portXmls[id]
+
+    def concate(
+        self, left: HierInstPath, right: HierInstPath
+    ) -> Optional[HierInstPath]:
+        if self.moduleName(left) == right.module:
+            return HierInstPath(left.module, left.instances + right.instances)
+        else:
+            return None
 
     def __newInstancePort(
         self,
@@ -45,7 +64,7 @@ class DesignManager:
         self.portSet.add(instancePort)
         return instancePort
 
-    def recursivePortWire(
+    def __recursivePortWire(
         self,
         instPath: HierInstPath,
         wireConnec: WireConnec,
@@ -72,7 +91,7 @@ class DesignManager:
                 assert innerParser
                 innerWireConnec = innerParser.findByWire(inner.portWireName)
                 assert innerWireConnec is not None
-                connec = self.recursivePortWire(
+                connec = self.__recursivePortWire(
                     innerInstPath,
                     innerWireConnec,
                 )
@@ -156,7 +175,7 @@ class DesignManager:
             assert moduleName == wireConnec.outer.moduleName
             assert wireConnec.bundleLink is not None
 
-            connec: list[InstancePort] = self.recursivePortWire(instPath, wireConnec)
+            connec: list[InstancePort] = self.__recursivePortWire(instPath, wireConnec)
             cl.warn_if(
                 connec.__len__() == 0,
                 f"{instPath}_port.xml's wire {wireConnec.name} is not connected",
@@ -176,7 +195,7 @@ class DesignManager:
     def addInstancePortFromBundle(
         self, instPath: HierInstPath, bundleName: str, bundleDir: PortDir
     ) -> list[InstancePort]:
-        moduleName = self.instPath2Module[instPath]
+        moduleName = self.moduleName(instPath)
         assert moduleName is not None, f"not found instPath: {instPath}"
         isLeaf = self.isLeaf(moduleName)
         assert isLeaf is not None

@@ -112,20 +112,28 @@ class PortXmlParser:
 
 
 class PortXmlReader:
-    def __init__(self, portXmlDir: str) -> None:
+
+    def __init__(self, portXmlDir: str, containerSet: set[str]) -> None:
         self.dirName: str = portXmlDir
         # get all *_xml.porbidirectt name from xml dir, consistent a set "fileList"
-        portXmlList: list[str] = [
-            file.name[:-9]
-            for file in os.scandir(portXmlDir)
-            if file.is_file() and file.name.endswith("_port.xml")
-        ]
-        self.fileList: set[str] = set(portXmlList)
+        portXmlSet = set(
+            [
+                file.name[:-9]
+                for file in os.scandir(portXmlDir)
+                if file.is_file() and file.name.endswith("_port.xml")
+            ]
+        )
+
+        for container in containerSet:
+            if container not in portXmlSet:
+                cl.warning(f"miss {container}_port.xml in {portXmlDir}")
+
+        self.containerSet = containerSet
         self.xmlDict: dict[str, PortXmlParser] = {}
 
     def __getitem__(self, moduleName: str) -> Optional[PortXmlParser]:
         # module name is valid
-        if moduleName in self.fileList:
+        if moduleName in self.containerSet:
             # module name is cached in dict
             if moduleName in self.xmlDict:
                 return self.xmlDict[moduleName]
