@@ -4,11 +4,8 @@ import logging
 
 
 class ErrorRaisingHandler(logging.Handler):
-    RaiseLevel = logging.ERROR
-
     def emit(self, record: logging.LogRecord) -> None:
-        if record.levelno >= ErrorRaisingHandler.RaiseLevel:
-            raise RuntimeError(record.getMessage())
+        raise RuntimeError(record.getMessage())
 
 
 class CondLogger(logging.Logger):
@@ -16,18 +13,32 @@ class CondLogger(logging.Logger):
         if cond:
             self.warning(msg)
 
+# 控制台
+consoleHandler = logging.StreamHandler()
+consoleHandler.setLevel(logging.ERROR)
+
+# 文件输出
+fileHandler = logging.FileHandler("DesignTree.log")
+fileHandler.setLevel(logging.DEBUG)
+
+formatter = logging.Formatter("%(levelname)s:%(message)s")
+consoleHandler.setFormatter(formatter)
+fileHandler.setFormatter(formatter)
+
+errorHandler = ErrorRaisingHandler()
+errorHandler.setLevel(logging.ERROR)
 
 # 创建 Logger
 logging.setLoggerClass(CondLogger)
 logger = logging.getLogger("DesignTree")
+# 添加 Handler
+logger.setLevel(logging.DEBUG)
+logger.addHandler(consoleHandler)
+logger.addHandler(fileHandler)
+logger.addHandler(errorHandler)
+
 assert isinstance(logger, CondLogger)
 cl: CondLogger = logger
-cl.setLevel(logging.DEBUG)
-
-# 添加自定义 Handler
-handler = ErrorRaisingHandler()
-cl.addHandler(handler)
-
 
 # hierarchy instance name
 # mutable

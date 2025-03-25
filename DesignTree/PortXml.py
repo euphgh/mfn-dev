@@ -97,7 +97,7 @@ class PortXmlParser:
                         wireConnec.inners.append(endBlock)
                 cl.warn_if(
                     endBlockDirect.__len__() != 1,
-                    f"Warn: port_signal_dir diff in {moduleName}_port.xml wire {wireConnec.name}",
+                    f"port_signal_dir diff in {moduleName}_port.xml wire {wireConnec.name}",
                 )
                 bundleConnec.wireList.append(wireConnec)
             cl.warn_if(
