@@ -15,10 +15,10 @@ class InputParser:
         self.blkClass = str()
         self.items: list[tuple[str, str, str]] = []
 
-    def getHier(self) -> str:
+    def getContainer(self) -> str:
         if self.blkClass != self.hier:
             print(f"found blkClass: {self.blkClass} != hier:{self.hier}")
-        return self.hier
+        return self.blkClass
 
     def nextItem(self) -> Optional[tuple[str, str, str]]:
         if self.items.__len__() == 0:
@@ -72,7 +72,7 @@ if __name__ == "__main__":
     designTree = DesignManager(yamlFile, xmlDir, leaflistFile)
     outpustFile = open("outputs.txt", "w")
     while inputParser.readLine():
-        hierPrefix = inputParser.getHier()
+        container = inputParser.getContainer()
         portSet: set[InstancePort] = set()
         while 1:
             result = inputParser.nextItem()
@@ -80,13 +80,13 @@ if __name__ == "__main__":
                 break
             instName, bundleName, bundleDir = result
             instPortList = None
-            if hierPrefix != instName:
+            if container != instName:
                 instPortList = designTree.addInstancePortFromBundle(
-                    f"{hierPrefix}.{instName}", bundleName, PortDir.fromStr(bundleDir)
+                    f"{container}.{instName}", bundleName, PortDir.fromStr(bundleDir)
                 )
             else:
                 instPortList = designTree.addInstancePortFromBundle(
-                    f"{hierPrefix}", bundleName, PortDir.fromStr(bundleDir)
+                    f"{container}", bundleName, PortDir.fromStr(bundleDir)
                 )
             for instPort in instPortList:
                 outpustFile.write(outputsFormat(instPort))
