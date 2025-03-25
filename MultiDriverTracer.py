@@ -54,7 +54,7 @@ class InputParser:
 
 def outputsFormat(instPort: InstancePort) -> str:
     ss = StringIO()
-    ss.write(f"{instPort.dir}: {instPort.instPath}, {instPort.portName}\n")
+    ss.write(f"{instPort.wireDir}: {instPort.instPath}, {instPort.portWireName}\n")
     for leaf in instPort.leaves():
         ss.write(f"{leaf.instPath}, {bundleName}\n")
 
@@ -79,8 +79,14 @@ if __name__ == "__main__":
             if result is None:
                 break
             instName, bundleName, bundleDir = result
-            instPortList = designTree.addInstancePortFromBundle(
-                f"{hierPrefix}.{instName}", bundleName, PortDir.fromStr(bundleDir)
-            )
+            if hierPrefix != instName:
+                instPortList = designTree.addInstancePortFromBundle(
+                    f"{hierPrefix}.{instName}", bundleName, PortDir.fromStr(bundleDir)
+                )
+            else:
+                instPortList = designTree.addInstancePortFromBundle(
+                    f"{hierPrefix}", bundleName, PortDir.fromStr(bundleDir)
+                )
+            assert instPortList.__len__() != 0
             for instPort in instPortList:
                 print(outputsFormat(instPort))

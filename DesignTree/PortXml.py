@@ -4,6 +4,7 @@ from xml.etree.ElementTree import Element
 from xml.etree import ElementTree as ET
 from typing import Optional
 import os
+import sys
 
 
 # data struct for end_block in PortXml
@@ -12,9 +13,10 @@ class EndBlock:
     def __init__(self) -> None:
         self.rInstPath = HierInstPath.empty()
         self.moduleName = str()
-        self.portBundle = str()
-        self.portSignal = str()
-        self.dir: PortDir = PortDir.EMPTY
+        self.portBundleName = str()
+        self.portWireName = str()
+        self.dir: PortDir = PortDir.EMPTY  # wire direct
+        self.wireLink: Optional[WireConnec] = None  # back link
 
 
 # data struct for wire element in PortXml
@@ -29,16 +31,20 @@ class WireConnec:
         self.outer = EndBlock()  # module port
         # ports of instance in this module, connect to outer
         self.inners = list[EndBlock]()
+        self.bundleLink: Optional[BundleConnec] = None  # back link
 
 
 # data struct for Bundle element in PortXml
 class BundleConnec:
     def __init__(self, name: str) -> None:
+        # not equal to port_name(port interface name) of end_block
         self.name: str = name
         self.wireList = list[WireConnec]()
+        self.dir = PortDir.EMPTY  # bundle dir, in transmition level
 
 
 class PortXmlParser:
+
     def __init__(self, portXml: XmlDoc, moduleName: str) -> None:
         self.xmlDoc: XmlDoc = portXml
         root = portXml.getroot()
@@ -46,29 +52,54 @@ class PortXmlParser:
         self.wireDict = dict[str, WireConnec]()
         for bundleElem in root.findall("bundle"):
             assert isinstance(bundleElem, Element)
-            bc = BundleConnec(bundleElem.attrib["name"])
-            self.bundleDict[bc.name] = bc
+            bundleConnec = BundleConnec(bundleElem.attrib["name"])
+            self.bundleDict[bundleConnec.name] = bundleConnec
+            bundleDirect = set[PortDir]()
             for wireElem in bundleElem.findall("wire"):
-                wc = WireConnec(wireElem.attrib["name"])
-                self.wireDict[wc.name] = wc
-                wc.range = (
+                wireConnec = WireConnec(wireElem.attrib["name"])
+                self.wireDict[wireConnec.name] = wireConnec
+                wireConnec.range = (
                     int(wireElem.attrib["high_bit"]),
                     int(wireElem.attrib["low_bit"]),
                 )
+                wireConnec.bundleLink = bundleConnec  # set link of bundleConnec
+                endBlockDirect = set[PortDir]()
                 for endBlockElem in wireElem.findall("end_block"):
-                    eb = EndBlock()
-                    eb.rInstPath = HierInstPath(
+                    endBlock = EndBlock()
+                    endBlock.rInstPath = HierInstPath(
                         endBlockElem.attrib["block_inst_name"], False
                     )
-                    eb.moduleName = endBlockElem.attrib["block_class_name"]
-                    eb.portBundle = endBlockElem.attrib["port_name"]
-                    eb.portSignal = endBlockElem.attrib["port_signal_name"]
-                    eb.dir = PortDir.fromStr(endBlockElem.attrib["port_dir"])
-                    if eb.moduleName == moduleName:
-                        wc.outer = eb
+                    endBlock.moduleName = endBlockElem.attrib["block_class_name"]
+                    endBlock.portBundleName = endBlockElem.attrib["port_name"]
+                    endBlock.portWireName = endBlockElem.attrib["port_signal_name"]
+                    # direction
+                    portWireDir = PortDir.fromStr(
+                        endBlockElem.attrib["port_signal_dir"]
+                    )
+                    bundleDirect.add(PortDir.fromStr(endBlockElem.attrib["port_dir"]))
+                    endBlock.dir = portWireDir
+                    endBlockDirect.add(portWireDir)
+                    # set link of bundleConnec
+                    endBlock.wireLink = wireConnec
+                    # outer and inners
+                    if endBlock.moduleName == moduleName:
+                        wireConnec.outer = endBlock
                     else:
-                        wc.inners.append(eb)
-                bc.wireList.append(wc)
+                        wireConnec.inners.append(endBlock)
+                # TODO: assert
+                if endBlockDirect.__len__() != 1:
+                    print(
+                        f"Warn: port_signal_dir diff in {moduleName}_port.xml wire {wireConnec.name}",
+                        file=sys.stderr,
+                    )
+                bundleConnec.wireList.append(wireConnec)
+            # TODO: assert
+            if bundleDirect.__len__() != 1:
+                print(
+                    f"Warn: port_dir diff in {moduleName}_port.xml bundle {bundleConnec.name}",
+                    file=sys.stderr,
+                )
+            bundleConnec.dir = bundleDirect.pop()
 
     def findByBundle(self, name: str) -> Optional[BundleConnec]:
         return self.bundleDict.get(name, None)
@@ -80,7 +111,7 @@ class PortXmlParser:
 class PortXmlReader:
     def __init__(self, portXmlDir: str) -> None:
         self.dirName: str = portXmlDir
-        # get all *_xml.port name from xml dir, consistent a set "fileList"
+        # get all *_xml.porbidirectt name from xml dir, consistent a set "fileList"
         portXmlList: list[str] = [
             file.name[:-9]
             for file in os.scandir(portXmlDir)

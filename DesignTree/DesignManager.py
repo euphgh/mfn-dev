@@ -1,6 +1,7 @@
 from DesignTree.Utils import PortDir, HierInstPath
 from DesignTree.InstancePort import *
 from DesignTree.PortXml import *
+import sys
 
 
 class DesignManager:
@@ -38,74 +39,151 @@ class DesignManager:
         instancePort = InstancePort()
         instancePort.instPath = instPath
         instancePort.moduleName = moduleName
-        instancePort.portName = portName
-        instancePort.dir = dir
+        instancePort.portWireName = portName
+        instancePort.wireDir = dir
         instancePort.isLeaf = isLeaf
         instancePort.connec = connec
+        if isLeaf:
+            assert connec.__len__() == 0
         self.portSet.add(instancePort)
         return instancePort
 
-    def fillPortConnec(
+    def recursivePortWire(
         self,
         aInstPath: HierInstPath,
-        moduleName: str,
-        portName: str,
-        dir: PortDir,
-        isLeaf: bool,
+        wireConnec: WireConnec,
     ) -> list[InstancePort]:
-        if isLeaf:
-            return []
-        parser = self.xmlDocOf(moduleName)
-        assert parser is not None
-        # assumpt bia log port name is same with bundle name, not wire name
-        # one bundle only have one wire and bundle name is same with wire name
-        wireConnec = parser.findByWire(portName)
-        assert wireConnec is not None
         res = list[InstancePort]()
         for inner in wireConnec.inners:
             innerAbsInstPath = inner.rInstPath.toAbs(aInstPath)
-            assert dir == inner.dir
             if inner.moduleName in self.leafModuleSet:
+                # port of leaf module
                 leafPort = self.__newInstancePort(
                     innerAbsInstPath,
                     inner.moduleName,
-                    inner.portSignal,
+                    inner.portWireName,
                     inner.dir,
                     True,
                     [],
                 )
                 res.append(leafPort)
             else:
-                connec = self.fillPortConnec(
+                innerParser = self.xmlDocOf(innerAbsInstPath)
+                assert innerParser
+                innerWireConnec = innerParser.findByWire(inner.portWireName)
+                assert innerWireConnec is not None
+                connec = self.recursivePortWire(
                     innerAbsInstPath,
-                    inner.moduleName,
-                    inner.portSignal,
-                    inner.dir,
-                    False,
+                    innerWireConnec,
                 )
-                blockPort = self.__newInstancePort(
+                # In contrast to the leaf module
+                #  branch module have sub instance
+                branchPort = self.__newInstancePort(
                     innerAbsInstPath,
                     inner.moduleName,
-                    inner.portSignal,
+                    inner.portWireName,
                     inner.dir,
                     False,
                     connec,
                 )
-                res.append(blockPort)
+                res.append(branchPort)
         return res
 
-    def addInstancePort(
-        self, absInstPathStr: str, portName: str, dir: PortDir
-    ) -> Optional[InstancePort]:
+    # leafBundle, the bundle connect leaf block
+    def __fromLeafBlockBundle(
+        self,
+        aInstPath: HierInstPath,
+        moduleName: str,
+        bundleName: str,
+        bundleDir: PortDir,
+    ):
+        instPortList = list[InstancePort]()
+        parentPath = aInstPath.parent()
+        parentParser = self.xmlDocOf(parentPath)
+        assert parentParser is not None
+        bundleConnec = parentParser.findByBundle(bundleName)
+        # TODO: change assert to if
+        if bundleConnec == None:
+            portWire = self.__newInstancePort(
+                aInstPath, moduleName, bundleName, bundleDir, True, []
+            )
+            print(
+                f"Warn: miss bundle {bundleName} in {parentPath}_port.xml",
+                file=sys.stderr,
+            )
+            return [portWire]
+        for wireConnec in bundleConnec.wireList:
+            for endBlock in wireConnec.inners:
+                if endBlock.rInstPath.toAbs(parentPath) == aInstPath:
+                    assert endBlock.wireLink is not None
+                    assert endBlock.wireLink.bundleLink is not None
+                    # TODO: assert, set bundleConnec.dir as many dir
+                    # assert endBlock.wireLink.bundleLink.dir == bundleDir
+                    assert endBlock.moduleName == moduleName
+                    instPort = self.__newInstancePort(
+                        aInstPath,
+                        moduleName,
+                        endBlock.portWireName,
+                        endBlock.dir,
+                        True,
+                        [],
+                    )
+                    instPortList.append(instPort)
+        return instPortList
+
+    def __fromBranchBlockBundle(
+        self,
+        absInstPath: HierInstPath,
+        moduleName: str,
+        bundleName: str,
+        bundleDir: PortDir,
+    ) -> list[InstancePort]:
+        instPortList = list[InstancePort]()
+        parser = self.xmlDocOf(moduleName)
+        assert parser is not None
+
+        bundleConnec = parser.findByBundle(bundleName)
+        assert bundleConnec is not None
+        # TODO: assert, set bundleConnec.dir as many dir
+        # assert bundleConnec.dir == bundleDir
+
+        for wireConnec in bundleConnec.wireList:
+            portWireName = wireConnec.outer.portWireName
+            wireDir = wireConnec.outer.dir
+            assert moduleName == wireConnec.outer.moduleName
+            assert wireConnec.bundleLink is not None
+            # TODO: assert, set bundleConnec.dir as many dir
+            # assert bundleDir == wireConnec.bundleLink.dir
+
+            connec: list[InstancePort] = self.recursivePortWire(absInstPath, wireConnec)
+            if connec.__len__() == 0:
+                print(
+                    f"{absInstPath}_port.xml's wire {wireConnec.name} is not connected",
+                    file=sys.stderr,
+                )
+            outerInstPort = self.__newInstancePort(
+                absInstPath,
+                moduleName,
+                portWireName,
+                wireDir,
+                False,
+                connec,
+            )
+            instPortList.append(outerInstPort)
+        return instPortList
+
+    def addInstancePortFromBundle(
+        self, absInstPathStr: str, bundleName: str, bundleDir: PortDir
+    ) -> list[InstancePort]:
         aInstPath: HierInstPath = HierInstPath(absInstPathStr, True)
         moduleName = self.instPath2Module[aInstPath]
-        if moduleName == None:
-            return None
+        assert moduleName is not None, f"not found instPath: {aInstPath}"
         isLeaf: bool = moduleName in self.leafModuleSet
-        connec: list[InstancePort] = self.fillPortConnec(
-            aInstPath, moduleName, portName, dir, isLeaf
-        )
-        instancePort = self.__newInstancePort(
-            aInstPath, moduleName, portName, dir, isLeaf, connec
-        )
-        return instancePort
+        if isLeaf:
+            return self.__fromLeafBlockBundle(
+                aInstPath, moduleName, bundleName, bundleDir
+            )
+        else:
+            return self.__fromBranchBlockBundle(
+                aInstPath, moduleName, bundleName, bundleDir
+            )
