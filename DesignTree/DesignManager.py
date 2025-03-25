@@ -54,7 +54,7 @@ class DesignManager:
     ) -> list[InstancePort]:
         res = list[InstancePort]()
         for inner in wireConnec.inners:
-            innerAbsInstPath = inner.rInstPath.toAbs(aInstPath)
+            innerAbsInstPath = aInstPath + inner.instPath
             if inner.moduleName in self.leafModuleSet:
                 # port of leaf module
                 leafPort = self.__newInstancePort(
@@ -108,7 +108,7 @@ class DesignManager:
             return [portWire]
         for wireConnec in bundleConnec.wireList:
             for endBlock in wireConnec.inners:
-                if endBlock.rInstPath.toAbs(parentPath) == aInstPath:
+                if parentPath + endBlock.instPath == aInstPath:
                     cl.warn_if(
                         endBlock.bundleDir != bundleDir,
                         f"port xml end_block {endBlock.portWireName}'s port_dir {endBlock.bundleDir} is diff with expected {bundleDir}",

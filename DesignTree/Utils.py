@@ -40,12 +40,6 @@ class HierInstPath:
         self.nameList = fullName.split(".")
         self.isAbs = isAbs
 
-    def toAbs(self, parentInstPath: "HierInstPath"):
-        assert parentInstPath.isAbs
-        absPath = copy.deepcopy(parentInstPath)
-        absPath.append(self)
-        return absPath
-
     def __str__(self) -> str:
         if self.isAbs:
             return "/" + ".".join(self.nameList)
@@ -68,6 +62,12 @@ class HierInstPath:
         if isinstance(value, HierInstPath):
             return self.__str__() == value.__str__()
         return False
+
+    def __add__(self, that: "HierInstPath"):
+        assert self.isAbs or not that.isAbs
+        res = copy.deepcopy(self)
+        res.append(that)
+        return res
 
     def __hash__(self) -> int:
         return hash(self.__str__())

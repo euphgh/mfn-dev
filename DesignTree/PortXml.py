@@ -10,13 +10,16 @@ import os
 # <end_block block_inst_name="uvpep" block_class_name="vpep" port_name="DBUS_VPEP_daisychain" port_signal_name="DBUS_VPEP_daisychain_data" port_signal_dir="input" port_dir="receive"/>
 class EndBlock:
     def __init__(self) -> None:
-        self.rInstPath = HierInstPath.empty()
+        self.instPath = HierInstPath.empty()
         self.moduleName = str()
         self.portBundleName = str()
         self.portWireName = str()
         self.wireDir: PortDir = PortDir.EMPTY  # wire direct
         self.bundleDir: PortDir = PortDir.EMPTY  # wire direct
         self.wireLink: Optional[WireConnec] = None  # back link
+
+    def __str__(self) -> str:
+        return f"{self.instPath}:{self.moduleName}:{self.portWireName}({self.wireDir}):{self.portBundleName}({self.bundleDir})"
 
 
 # data struct for wire element in PortXml
@@ -33,6 +36,9 @@ class WireConnec:
         self.inners = list[EndBlock]()
         self.bundleLink: Optional[BundleConnec] = None  # back link
 
+    def __str__(self) -> str:
+        return f"{self.name}:{self.range}"
+
 
 # data struct for Bundle element in PortXml
 class BundleConnec:
@@ -41,6 +47,9 @@ class BundleConnec:
         self.name: str = name
         self.wireList = list[WireConnec]()
         self.dir = PortDir.EMPTY  # bundle dir, in transmition level
+
+    def __str__(self) -> str:
+        return f"{self.name}:{self.dir}"
 
 
 class PortXmlParser:
@@ -66,7 +75,7 @@ class PortXmlParser:
                 endBlockDirect = set[PortDir]()
                 for endBlockElem in wireElem.findall("end_block"):
                     endBlock = EndBlock()
-                    endBlock.rInstPath = HierInstPath(
+                    endBlock.instPath = HierInstPath(
                         endBlockElem.attrib["block_inst_name"], False
                     )
                     endBlock.moduleName = endBlockElem.attrib["block_class_name"]
