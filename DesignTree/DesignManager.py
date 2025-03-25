@@ -1,7 +1,6 @@
 from DesignTree.Utils import PortDir, HierInstPath
 from DesignTree.InstancePort import *
 from DesignTree.PortXml import *
-import sys
 
 
 class DesignManager:
@@ -62,7 +61,7 @@ class DesignManager:
                     innerAbsInstPath,
                     inner.moduleName,
                     inner.portWireName,
-                    inner.dir,
+                    inner.wireDir,
                     True,
                     [],
                 )
@@ -77,16 +76,15 @@ class DesignManager:
                     innerWireConnec,
                 )
                 # In contrast to the leaf module
-                #  branch module have sub instance
-                branchPort = self.__newInstancePort(
+                containerPort = self.__newInstancePort(
                     innerAbsInstPath,
                     inner.moduleName,
                     inner.portWireName,
-                    inner.dir,
+                    inner.wireDir,
                     False,
                     connec,
                 )
-                res.append(branchPort)
+                res.append(containerPort)
         return res
 
     # leafBundle, the bundle connect leaf block
@@ -102,36 +100,36 @@ class DesignManager:
         parentParser = self.xmlDocOf(parentPath)
         assert parentParser is not None
         bundleConnec = parentParser.findByBundle(bundleName)
-        # TODO: change assert to if
         if bundleConnec == None:
+            cl.warning(f"miss bundle {bundleName} in {parentPath}_port.xml")
             portWire = self.__newInstancePort(
                 aInstPath, moduleName, bundleName, bundleDir, True, []
-            )
-            print(
-                f"Warn: miss bundle {bundleName} in {parentPath}_port.xml",
-                file=sys.stderr,
             )
             return [portWire]
         for wireConnec in bundleConnec.wireList:
             for endBlock in wireConnec.inners:
                 if endBlock.rInstPath.toAbs(parentPath) == aInstPath:
-                    assert endBlock.wireLink is not None
-                    assert endBlock.wireLink.bundleLink is not None
-                    # TODO: assert, set bundleConnec.dir as many dir
-                    # assert endBlock.wireLink.bundleLink.dir == bundleDir
+                    cl.warn_if(
+                        endBlock.bundleDir != bundleDir,
+                        f"port xml end_block {endBlock.portWireName}'s port_dir {endBlock.bundleDir} is diff with expected {bundleDir}",
+                    )
                     assert endBlock.moduleName == moduleName
                     instPort = self.__newInstancePort(
                         aInstPath,
                         moduleName,
                         endBlock.portWireName,
-                        endBlock.dir,
+                        endBlock.wireDir,
                         True,
                         [],
                     )
                     instPortList.append(instPort)
+        cl.warn_if(
+            instPortList.__len__() == 0,
+            f"miss end_block {moduleName}:{bundleName} in {parentPath}_port.xml ",
+        )
         return instPortList
 
-    def __fromBranchBlockBundle(
+    def __fromContainerBundle(
         self,
         absInstPath: HierInstPath,
         moduleName: str,
@@ -144,23 +142,22 @@ class DesignManager:
 
         bundleConnec = parser.findByBundle(bundleName)
         assert bundleConnec is not None
-        # TODO: assert, set bundleConnec.dir as many dir
-        # assert bundleConnec.dir == bundleDir
+        cl.warn_if(
+            bundleConnec.dir != bundleDir,
+            f"port xml bundle's dir {bundleConnec.dir} is diff with expected {bundleDir}",
+        )
 
         for wireConnec in bundleConnec.wireList:
             portWireName = wireConnec.outer.portWireName
-            wireDir = wireConnec.outer.dir
+            wireDir = wireConnec.outer.wireDir
             assert moduleName == wireConnec.outer.moduleName
             assert wireConnec.bundleLink is not None
-            # TODO: assert, set bundleConnec.dir as many dir
-            # assert bundleDir == wireConnec.bundleLink.dir
 
             connec: list[InstancePort] = self.recursivePortWire(absInstPath, wireConnec)
-            if connec.__len__() == 0:
-                print(
-                    f"{absInstPath}_port.xml's wire {wireConnec.name} is not connected",
-                    file=sys.stderr,
-                )
+            cl.warn_if(
+                connec.__len__() == 0,
+                f"{absInstPath}_port.xml's wire {wireConnec.name} is not connected",
+            )
             outerInstPort = self.__newInstancePort(
                 absInstPath,
                 moduleName,
@@ -184,6 +181,6 @@ class DesignManager:
                 aInstPath, moduleName, bundleName, bundleDir
             )
         else:
-            return self.__fromBranchBlockBundle(
+            return self.__fromContainerBundle(
                 aInstPath, moduleName, bundleName, bundleDir
             )

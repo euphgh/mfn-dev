@@ -1,10 +1,9 @@
-from DesignTree.Utils import PortDir, HierInstPath
+from DesignTree.Utils import PortDir, HierInstPath, cl
 from xml.etree.ElementTree import ElementTree as XmlDoc
 from xml.etree.ElementTree import Element
 from xml.etree import ElementTree as ET
 from typing import Optional
 import os
-import sys
 
 
 # data struct for end_block in PortXml
@@ -15,7 +14,8 @@ class EndBlock:
         self.moduleName = str()
         self.portBundleName = str()
         self.portWireName = str()
-        self.dir: PortDir = PortDir.EMPTY  # wire direct
+        self.wireDir: PortDir = PortDir.EMPTY  # wire direct
+        self.bundleDir: PortDir = PortDir.EMPTY  # wire direct
         self.wireLink: Optional[WireConnec] = None  # back link
 
 
@@ -77,7 +77,7 @@ class PortXmlParser:
                         endBlockElem.attrib["port_signal_dir"]
                     )
                     bundleDirect.add(PortDir.fromStr(endBlockElem.attrib["port_dir"]))
-                    endBlock.dir = portWireDir
+                    endBlock.wireDir = portWireDir
                     endBlockDirect.add(portWireDir)
                     # set link of bundleConnec
                     endBlock.wireLink = wireConnec
@@ -86,19 +86,15 @@ class PortXmlParser:
                         wireConnec.outer = endBlock
                     else:
                         wireConnec.inners.append(endBlock)
-                # TODO: assert
-                if endBlockDirect.__len__() != 1:
-                    print(
-                        f"Warn: port_signal_dir diff in {moduleName}_port.xml wire {wireConnec.name}",
-                        file=sys.stderr,
-                    )
-                bundleConnec.wireList.append(wireConnec)
-            # TODO: assert
-            if bundleDirect.__len__() != 1:
-                print(
-                    f"Warn: port_dir diff in {moduleName}_port.xml bundle {bundleConnec.name}",
-                    file=sys.stderr,
+                cl.warn_if(
+                    endBlockDirect.__len__() != 1,
+                    f"Warn: port_signal_dir diff in {moduleName}_port.xml wire {wireConnec.name}",
                 )
+                bundleConnec.wireList.append(wireConnec)
+            cl.warn_if(
+                bundleDirect.__len__() != 1,
+                f"port_dir diff in {moduleName}_port.xml bundle {bundleConnec.name}",
+            )
             bundleConnec.dir = bundleDirect.pop()
 
     def findByBundle(self, name: str) -> Optional[BundleConnec]:

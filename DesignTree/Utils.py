@@ -1,5 +1,32 @@
 from enum import Enum
 import copy
+import logging
+
+
+class ErrorRaisingHandler(logging.Handler):
+    RaiseLevel = logging.ERROR
+
+    def emit(self, record: logging.LogRecord) -> None:
+        if record.levelno >= ErrorRaisingHandler.RaiseLevel:
+            raise RuntimeError(record.getMessage())
+
+
+class CondLogger(logging.Logger):
+    def warn_if(self, cond: bool, msg: str):
+        if cond:
+            self.warning(msg)
+
+
+# 创建 Logger
+logging.setLoggerClass(CondLogger)
+logger = logging.getLogger("DesignTree")
+assert isinstance(logger, CondLogger)
+cl: CondLogger = logger
+cl.setLevel(logging.DEBUG)
+
+# 添加自定义 Handler
+handler = ErrorRaisingHandler()
+cl.addHandler(handler)
 
 
 # hierarchy instance name
@@ -30,6 +57,12 @@ class HierInstPath:
             self.nameList.append(tail)
         else:
             self.nameList.extend(tail.nameList)
+
+    def parent(self) -> "HierInstPath":
+        parentPath = copy.deepcopy(self)
+        assert parentPath.nameList.__len__() > 1
+        parentPath.nameList.pop()
+        return parentPath
 
     def __eq__(self, value: object) -> bool:
         if isinstance(value, HierInstPath):
