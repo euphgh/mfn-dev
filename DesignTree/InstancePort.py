@@ -7,50 +7,49 @@ class ModuleNode:
     def __init__(self, name: str) -> None:
         self.name = name
         # from instance name to
-        self.subs = dict[str, "Optional[ModuleNode]"]()
+        self.next = dict[str, "Optional[ModuleNode]"]()
+        self.prev = dict[str, "Optional[ModuleNode]"]()
 
     def isLeaf(self):
-        return self.subs.__len__() == 0
+        return self.next.__len__() == 0
 
 
 class InstanceModuleMap:
 
     def __init__(self, yamlFile: str) -> None:
-        # container -> dict{ instance -> container }
-        self.containerDict = dict[str, dict[str, str]]()
-        self.nodeDict = dict[str, ModuleNode]()
+        self.nodes = dict[str, ModuleNode]()
         self.roots = set[str]()
         with open(yamlFile, "r", encoding="utf-8") as file:
             data = yaml.safe_load(file)
             assert isinstance(data, dict)
 
-            assert "CONTAINER_CLASS_NAMES" in data
-            for pair in data["CONTAINER_CLASS_NAMES"]:
-                assert isinstance(pair, str)
-                pModule = pair.strip()
-                self.containerDict[pModule] = dict[str, str]()
-                self.nodeDict[pModule] = ModuleNode(pModule)
+            for line in data["CONTAINER_CLASS_NAMES"]:
+                assert isinstance(line, str)
+                pModule = line.strip()
+                # self.containerDict[pModule] = dict[str, str]()
+                self.nodes[pModule] = ModuleNode(pModule)
                 self.roots.add(pModule)
 
-            assert "ALL_BLOCK_INSTANCE_PARENT_PATH" in data
             for pair in data["ALL_BLOCK_INSTANCE_PARENT_PATH"]:
                 assert isinstance(pair, str)
-                pathName, subModule = pair.split(":")
+                pathName, sModule = pair.split(":")
                 pModule, instanceName = pathName.split(".")
-                self.containerDict[pModule][instanceName] = subModule
-                if subModule in self.nodeDict:
-                    self.nodeDict[pModule].subs[instanceName] = self.nodeDict[subModule]
-                else:
-                    leafNode = ModuleNode(subModule)
-                    self.nodeDict[subModule] = leafNode
-                    self.nodeDict[pModule].subs[instanceName] = leafNode
+                # self.containerDict[pModule][instanceName] = sModule
 
-                if subModule in self.roots:
-                    self.roots.remove(subModule)
+                pModuleNode = self.nodes[pModule]
+                # get value if key exist, else insert new value and return
+                sModuleNode = self.nodes.setdefault(sModule, ModuleNode(sModule))
+
+                # set double direct link
+                pModuleNode.next[instanceName] = sModuleNode
+                sModuleNode.prev[instanceName] = pModuleNode
+
+                if sModule in self.roots:
+                    self.roots.remove(sModule)
 
     def isLeaf(self, moduleName: str) -> Optional[bool]:
-        if moduleName in self.nodeDict:
-            return self.nodeDict[moduleName].isLeaf()
+        if moduleName in self.nodes:
+            return self.nodes[moduleName].isLeaf()
         else:
             return None
 
@@ -60,12 +59,17 @@ class InstanceModuleMap:
             return None
         if instPath.names.__len__() == 1:
             return instPath.names[0]
-        currentDict = None
-        currentContainerName = instPath.names[0]
-        for name in instPath.names[1:]:
-            currentDict = self.containerDict[currentContainerName]
-            currentContainerName = currentDict[name]
-        return currentContainerName
+
+        index = 0
+        node: Optional[ModuleNode] = self.nodes[instPath.names[index]]
+        while node != None and index < instPath.names.__len__() - 1:
+            index += 1
+            node = node.next[instPath.names[index]]
+
+        if node is None:
+            return None
+        else:
+            return node.name
 
 # wire unit, not bundle
 class InstancePort:
