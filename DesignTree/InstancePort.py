@@ -3,11 +3,23 @@ from typing import Optional
 import yaml
 
 
+class ModuleNode:
+    def __init__(self, name: str) -> None:
+        self.name = name
+        # from instance name to
+        self.subs = dict[str, "Optional[ModuleNode]"]()
+
+    def isLeaf(self):
+        return self.subs.__len__() == 0
+
+
 class InstanceModuleMap:
 
     def __init__(self, yamlFile: str) -> None:
         # container -> dict{ instance -> container }
         self.containerDict = dict[str, dict[str, str]]()
+        self.nodeDict = dict[str, ModuleNode]()
+        self.roots = set[str]()
         with open(yamlFile, "r", encoding="utf-8") as file:
             data = yaml.safe_load(file)
             assert isinstance(data, dict)
@@ -15,15 +27,32 @@ class InstanceModuleMap:
             assert "CONTAINER_CLASS_NAMES" in data
             for pair in data["CONTAINER_CLASS_NAMES"]:
                 assert isinstance(pair, str)
-                parentModule = pair.strip()
-                self.containerDict[parentModule] = dict[str, str]()
+                pModule = pair.strip()
+                self.containerDict[pModule] = dict[str, str]()
+                self.nodeDict[pModule] = ModuleNode(pModule)
+                self.roots.add(pModule)
 
             assert "ALL_BLOCK_INSTANCE_PARENT_PATH" in data
             for pair in data["ALL_BLOCK_INSTANCE_PARENT_PATH"]:
                 assert isinstance(pair, str)
                 pathName, subModule = pair.split(":")
-                parentModule, instanceName = pathName.split(".")
-                self.containerDict[parentModule][instanceName] = subModule
+                pModule, instanceName = pathName.split(".")
+                self.containerDict[pModule][instanceName] = subModule
+                if subModule in self.nodeDict:
+                    self.nodeDict[pModule].subs[instanceName] = self.nodeDict[subModule]
+                else:
+                    leafNode = ModuleNode(subModule)
+                    self.nodeDict[subModule] = leafNode
+                    self.nodeDict[pModule].subs[instanceName] = leafNode
+
+                if subModule in self.roots:
+                    self.roots.remove(subModule)
+
+    def isLeaf(self, moduleName: str) -> Optional[bool]:
+        if moduleName in self.nodeDict:
+            return self.nodeDict[moduleName].isLeaf()
+        else:
+            return None
 
     def __getitem__(self, instPath: HierInstPath) -> Optional[str]:
         assert instPath.isAbs
@@ -72,6 +101,4 @@ class InstancePort:
         if self.isLeaf:
             return f"leaf: {self.instPath.__str__()}:{self.portWireName}:{self.wireDir}"
         else:
-            return (
-                f"branch: {self.instPath.__str__()}:{self.portWireName}:{self.wireDir}"
-            )
+            return f"container: {self.instPath.__str__()}:{self.portWireName}:{self.wireDir}"
