@@ -28,6 +28,7 @@ class DesignManager:
         moduleName: str,
         portName: str,
         dir: PortDir,
+        range: tuple[int, int],
         isLeaf: bool,
         connec: list[InstancePort],
     ):
@@ -36,6 +37,7 @@ class DesignManager:
         instancePort.moduleName = moduleName
         instancePort.portWireName = portName
         instancePort.wireDir = dir
+        instancePort.range = range
         instancePort.isLeaf = isLeaf
         instancePort.connec = connec
         if isLeaf:
@@ -60,6 +62,7 @@ class DesignManager:
                     inner.moduleName,
                     inner.portWireName,
                     inner.wireDir,
+                    wireConnec.range,
                     True,
                     [],
                 )
@@ -79,6 +82,7 @@ class DesignManager:
                     inner.moduleName,
                     inner.portWireName,
                     inner.wireDir,
+                    innerWireConnec.range,
                     False,
                     connec,
                 )
@@ -101,7 +105,7 @@ class DesignManager:
         if bundleConnec == None:
             cl.warning(f"miss bundle {bundleName} in {parentPath}_port.xml")
             portWire = self.__newInstancePort(
-                aInstPath, moduleName, bundleName, bundleDir, True, []
+                aInstPath, moduleName, bundleName, bundleDir, (0, 0), True, []
             )
             return [portWire]
         for wireConnec in bundleConnec.wireList:
@@ -117,6 +121,7 @@ class DesignManager:
                         moduleName,
                         endBlock.portWireName,
                         endBlock.wireDir,
+                        wireConnec.range,
                         True,
                         [],
                     )
@@ -161,6 +166,7 @@ class DesignManager:
                 moduleName,
                 portWireName,
                 wireDir,
+                wireConnec.range,
                 False,
                 connec,
             )

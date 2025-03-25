@@ -74,6 +74,7 @@ class InstancePort:
         self.instPath = HierInstPath.empty()
         self.moduleName = str()
         self.portWireName = str()
+        self.range = tuple[int, int]()
         self.wireDir = PortDir.EMPTY
         self.isLeaf = False
         self.connec = list["InstancePort"]()

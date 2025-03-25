@@ -56,7 +56,11 @@ def outputsFormat(instPort: InstancePort) -> str:
     ss = StringIO()
     for leaf in instPort.leaves():
         instPath = leaf.instPath.join("/")
-        ss.write(f"{instPath}/{leaf.portWireName}\n")
+        if leaf.range[0] - leaf.range[1] == 0:
+            ss.write(f"{instPath}/{leaf.portWireName}\n")
+        else:
+            for i in range(leaf.range[1], leaf.range[0]):
+                ss.write(f"{instPath}/{leaf.portWireName}[{i}]\n")
 
     ret = ss.getvalue()
     ss.close()
