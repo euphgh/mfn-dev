@@ -56,7 +56,7 @@ def outputsFormat(instPort: InstancePort) -> str:
     ss = StringIO()
     for leaf in instPort.leaves():
         instPath = leaf.instPath.join("/")
-        ss.write(f"{instPath}/{bundleName}\n")
+        ss.write(f"{instPath}/{leaf.portWireName}\n")
 
     ret = ss.getvalue()
     ss.close()
