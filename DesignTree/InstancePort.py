@@ -1,4 +1,6 @@
-from DesignTree.Utils import HierInstPath, PortDir
+from DesignTree.Utils import HierInstPath, PortDir, WireRange
+from DesignTree.HierTree import ModuleNode
+from typing import Optional
 
 class InstancePort:
     """
@@ -40,3 +42,27 @@ class InstancePort:
             return f"leaf: {self.instPath.__str__()}:{self.portWireName}:{self.wireDir}"
         else:
             return f"container: {self.instPath.__str__()}:{self.portWireName}:{self.wireDir}"
+
+
+class PortWireNode:
+    """
+    Node for Hierarchy Port Tree
+    """
+
+    def __init__(self) -> None:
+        self.name = str()
+        self.bundle = str()
+        self.wireDir = PortDir.EMPTY
+        self.bundleDir = PortDir.EMPTY
+        self.range = WireRange()
+        self.module: Optional[ModuleNode] = None
+        self.inner = dict[str, PortWireNode]()
+        self.outer = dict[str, PortWireNode]()
+
+
+class PortManager:
+    def __init__(self) -> None:
+        self.nodes = dict[str, PortWireNode]()
+
+    def wireOf(self, name: str) -> Optional[PortWireNode]:
+        return None
