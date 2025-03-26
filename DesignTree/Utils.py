@@ -121,3 +121,9 @@ class PortDir(Enum):
         if dir == "bidirect":
             return PortDir.INOUT
         assert False, f"Direct str {dir} is not expected"
+
+
+class WireRange:
+    def __init__(self) -> None:
+        self.msb: int = 0
+        self.lsb: int = 0
