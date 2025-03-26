@@ -24,6 +24,12 @@ class DesignManager:
             else:
                 return False
 
+    def forward(self, instPath: HierInstPath):
+        return self.hierTree.forward(instPath)
+
+    def backward(self, instPath: HierInstPath):
+        return self.hierTree.backward(instPath)
+
     def xmlDocOf(self, id: HierInstPath | str) -> Optional[PortXmlParser]:
         if isinstance(id, HierInstPath):
             moduleName = self.moduleName(id)

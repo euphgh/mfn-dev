@@ -52,15 +52,15 @@ class InputParser:
         return True
 
 
-def outputsFormat(instPort: InstancePort) -> str:
+def outputsFormat(instPort: InstancePort, instPath: HierInstPath) -> str:
     ss = StringIO()
+    instPathStr = instPath.join("/")
     for leaf in instPort.leaves():
-        instPath = leaf.instPath.join("/")
         if leaf.range[0] - leaf.range[1] == 0:
-            ss.write(f"{instPath}/{leaf.portWireName}\n")
+            ss.write(f"{instPathStr}/{leaf.portWireName}\n")
         else:
             for i in range(leaf.range[1], leaf.range[0]):
-                ss.write(f"{instPath}/{leaf.portWireName}[{i}]\n")
+                ss.write(f"{instPathStr}/{leaf.portWireName}[{i}]\n")
 
     ret = ss.getvalue()
     ss.close()
@@ -93,5 +93,7 @@ if __name__ == "__main__":
                     HierInstPath(container), bundleName, PortDir.fromStr(bundleDir)
                 )
             for instPort in instPortList:
-                outpustFile.write(outputsFormat(instPort))
+                absPaths = designTree.forward(instPort.instPath)
+                for absPath in absPaths:
+                    outpustFile.write(outputsFormat(instPort, absPath))
     outpustFile.close()
