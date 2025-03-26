@@ -52,19 +52,19 @@ class InputParser:
         return True
 
 
-def outputsFormat(instPort: InstancePort, instPath: HierInstPath) -> str:
-    ss = StringIO()
+def format(instPath: HierInstPath, portName: str) -> str:
     instPathStr = instPath.join("/")
-    for leaf in instPort.leaves():
-        if leaf.range[0] - leaf.range[1] == 0:
-            ss.write(f"{instPathStr}/{leaf.portWireName}\n")
-        else:
-            for i in range(leaf.range[1], leaf.range[0]):
-                ss.write(f"{instPathStr}/{leaf.portWireName}[{i}]\n")
+    return f"{instPathStr}/{portName}\n"
 
-    ret = ss.getvalue()
-    ss.close()
-    return ret
+
+def printLeafPortOf(instPort: InstancePort):
+    for leafPort in instPort.leaves():
+        leafInstPath = leafPort.instPath
+        if leafPort.range[0] - leafPort.range[1] == 0:
+            outputs.write(format(leafInstPath, leafPort.portWireName))
+        else:
+            for i in range(leafPort.range[1], leafPort.range[0]):
+                outputs.write(format(leafInstPath, f"{leafPort.portWireName}[{i}]"))
 
 
 if __name__ == "__main__":
@@ -73,7 +73,7 @@ if __name__ == "__main__":
     yamlFile: str = f"{xmlDir}/logical_info.yml"
     inputParser = InputParser(multidriveLog)
     designTree = DesignManager(yamlFile, xmlDir)
-    outpustFile = open("outputs.txt", "w")
+    outputs = open("outputs.txt", "w")
     while inputParser.readLine():
         container = inputParser.getContainer()
         while 1:
@@ -93,7 +93,6 @@ if __name__ == "__main__":
                     HierInstPath(container), bundleName, PortDir.fromStr(bundleDir)
                 )
             for instPort in instPortList:
-                absPaths = designTree.forward(instPort.instPath)
-                for absPath in absPaths:
-                    outpustFile.write(outputsFormat(instPort, absPath))
-    outpustFile.close()
+                printLeafPortOf(instPort)
+
+    outputs.close()
