@@ -1,6 +1,7 @@
 from DesignTree.Utils import PortDir, HierInstPath
 from DesignTree.InstancePort import *
 from DesignTree.PortXml import *
+from DesignTree.HierTree import *
 
 
 class DesignManager:
@@ -10,8 +11,10 @@ class DesignManager:
         self.portXmls = PortXmlReader(xmlDir, self.hierTree.containers())
         self.portSet = set[InstancePort]()
 
-    # get module name of for the HierInstPath
     def moduleName(self, instPath: HierInstPath):
+        """
+        get module name of for the HierInstPath
+        """
         return self.hierTree.moduleName(instPath)
 
     def isLeaf(self, id: str | HierInstPath):
@@ -114,7 +117,6 @@ class DesignManager:
                 res.append(containerPort)
         return res
 
-    # leafBundle, the bundle connect leaf block
     def __fromLeafBlockBundle(
         self,
         aInstPath: HierInstPath,
@@ -122,6 +124,9 @@ class DesignManager:
         bundleName: str,
         bundleDir: PortDir,
     ):
+        """
+        create InstancePort List from the bundle port of leaf block
+        """
         instPortList = list[InstancePort]()
         parentPath = aInstPath.parent()
         parentParser = self.xmlDocOf(parentPath)
@@ -164,6 +169,9 @@ class DesignManager:
         bundleName: str,
         bundleDir: PortDir,
     ) -> list[InstancePort]:
+        """
+        create InstancePort List from the bundle port of container
+        """
         instPortList = list[InstancePort]()
         parser = self.xmlDocOf(moduleName)
         assert parser is not None

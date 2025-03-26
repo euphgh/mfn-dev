@@ -1,3 +1,14 @@
+"""
+utils and basic class used in DesignTree
+
+variable
+cl: for logging information about DesignTree
+
+class
+HierInstPath: present module and instances hierarchy
+PortDir: present the direct of wire or bundle
+"""
+
 from enum import Enum
 import logging
 
@@ -11,6 +22,7 @@ class CondLogger(logging.Logger):
     def warn_if(self, cond: bool, msg: str):
         if cond:
             self.warning(msg)
+
 
 # 控制台
 consoleHandler = logging.StreamHandler()
@@ -41,6 +53,15 @@ cl: CondLogger = logger
 
 
 class HierInstPath:
+    """
+    representing module and instances hierarchy
+    note: this class is immutable, like tuple and str in python
+
+    self.module: the module name of the start of this path
+    self.instances: instance name path under this module
+    If you want to add or sub the HierInstPath, it need the module and instance path information.
+    please use DesignManager.add/sub to process two HierInstPath.
+    """
 
     def __init__(self, module: str, instances: "str|tuple[str, ...]" = ()) -> None:
         self.module = module
@@ -76,11 +97,14 @@ class HierInstPath:
 
 
 class PortDir(Enum):
+    """
+    enum class to present the direct
+    """
 
-    EMPTY = 0
-    INPUT = 1
-    OUTPUT = 2
-    INOUT = 3
+    EMPTY = 0  # only for init
+    INPUT = 1  # input or receive
+    OUTPUT = 2  # output or transmit
+    INOUT = 3  # inout or bidirect
 
     @staticmethod
     def fromStr(dir: str) -> "PortDir":

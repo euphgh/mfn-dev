@@ -6,28 +6,40 @@ from typing import Optional
 import os
 
 
-# data struct for end_block in PortXml
-# <end_block block_inst_name="uvpep" block_class_name="vpep" port_name="DBUS_VPEP_daisychain" port_signal_name="DBUS_VPEP_daisychain_data" port_signal_dir="input" port_dir="receive"/>
 class EndBlock:
+    """
+    Data struct for end_block in PortXml
+
+    <end_block block_inst_name="uvpep" block_class_name="vpep"
+        port_name="DBUS_VPEP_daisychain"
+        port_signal_name="DBUS_VPEP_daisychain_data"
+        port_signal_dir="input"
+        port_dir="receive"/>
+    """
     def __init__(self) -> None:
         self.instName: str
         self.moduleName = str()
         self.portBundleName = str()
         self.portWireName = str()
-        self.wireDir: PortDir = PortDir.EMPTY  # wire direct
-        self.bundleDir: PortDir = PortDir.EMPTY  # wire direct
+        self.wireDir: PortDir = PortDir.EMPTY  # port_signal_dir
+        self.bundleDir: PortDir = PortDir.EMPTY  # port_dir
         self.wireLink: Optional[WireConnec] = None  # back link
 
     def __str__(self) -> str:
         return f"{self.instName}:{self.moduleName}:{self.portWireName}({self.wireDir}):{self.portBundleName}({self.bundleDir})"
 
 
-# data struct for wire element in PortXml
-# <wire name="PERFMON_CAC_SelfRefClks_p1_active" high_bit="0" low_bit="0">
-# 	<end_block block_inst_name="umc" block_class_name="umc" port_name="PERFMON_CAC_SelfRefClks_p1" port_signal_name="PERFMON_CAC_SelfRefClks_p1_active" port_signal_dir="output" port_dir="transmit"/>
-# 	<end_block block_inst_name="umcdat" block_class_name="umcdat" port_name="PERFMON_CAC_SelfRefClks_p1" port_signal_name="PERFMON_CAC_SelfRefClks_p1_active" port_signal_dir="output" port_dir="transmit"/>
-# </wire>
 class WireConnec:
+    """
+    Data struct for wire element in PortXml
+
+    <wire name="PERFMON_CAC_SelfRefClks_p1_active" high_bit="0" low_bit="0">
+            <end_block block_inst_name="umc" block_class_name="umc"
+                port_signal_name="PERFMON_CAC_SelfRefClks_p1_active" .../>
+            <end_block ... />
+            <end_block ... />
+    </wire>
+    """
     def __init__(self, name: str) -> None:
         self.name: str = name
         self.range = tuple[int, int]()
@@ -40,8 +52,10 @@ class WireConnec:
         return f"{self.name}:{self.range}"
 
 
-# data struct for Bundle element in PortXml
 class BundleConnec:
+    """
+    Data struct for Bundle element in PortXml
+    """
     def __init__(self, name: str) -> None:
         # not equal to port_name(port interface name) of end_block
         self.name: str = name
