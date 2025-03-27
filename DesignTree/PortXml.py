@@ -1,4 +1,5 @@
 from DesignTree.Utils import PortDir, cl
+from DesignTree.InstancePort import PortSet, PortWireNode
 from xml.etree.ElementTree import ElementTree as XmlDoc
 from xml.etree.ElementTree import Element
 from xml.etree import ElementTree as ET
@@ -129,7 +130,7 @@ class PortXmlReader:
 
     def __init__(self, portXmlDir: str, containerSet: set[str]) -> None:
         self.dirName: str = portXmlDir
-        # get all *_xml.porbidirectt name from xml dir, consistent a set "fileList"
+        # get all *_xml.porbidirectt name from xml dir, consistent a set
         portXmlSet = set(
             [
                 file.name[:-9]
@@ -143,9 +144,9 @@ class PortXmlReader:
                 cl.warning(f"miss {container}_port.xml in {portXmlDir}")
 
         self.containerSet = containerSet
-        self.xmlDict: dict[str, PortXmlParser] = {}
+        self.xmlDict: dict[str, XmlDoc] = {}
 
-    def __getitem__(self, moduleName: str) -> Optional[PortXmlParser]:
+    def __getitem__(self, moduleName: str) -> Optional[XmlDoc]:
         # module name is valid
         if moduleName in self.containerSet:
             # module name is cached in dict
@@ -154,11 +155,7 @@ class PortXmlReader:
             # load xml when needed
             else:
                 tree: XmlDoc = ET.parse(f"{self.dirName}/{moduleName}_port.xml")
-                containerName = tree.getroot().attrib["container"]
-                assert isinstance(containerName, str)
-                assert containerName == moduleName
-                parser = PortXmlParser(tree, moduleName)
-                self.xmlDict[moduleName] = parser
-                return parser
+                self.xmlDict[moduleName] = tree
+                return tree
         else:
             return None

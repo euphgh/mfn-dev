@@ -124,6 +124,7 @@ class PortDir(Enum):
 
 
 class WireRange:
-    def __init__(self) -> None:
-        self.msb: int = 0
-        self.lsb: int = 0
+
+    def __init__(self, msb: int = 0, lsb: int = 0) -> None:
+        self.msb: int = msb
+        self.lsb: int = lsb

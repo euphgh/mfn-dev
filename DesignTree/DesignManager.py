@@ -9,7 +9,6 @@ class DesignManager:
     def __init__(self, yamlFile: str, xmlDir: str) -> None:
         self.hierTree = HierTree(yamlFile)
         self.portXmls = PortXmlReader(xmlDir, self.hierTree.containers())
-        self.portSet = set[InstancePort]()
 
     def moduleName(self, instPath: HierInstPath):
         """

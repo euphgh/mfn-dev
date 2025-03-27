@@ -66,6 +66,9 @@ class HierTree:
         containerNodes = filter(lambda x: not x.isLeaf(), self.nodes.values())
         return set(map(lambda x: x.name, containerNodes))
 
+    def modules(self):
+        return set(self.nodes.keys())
+
     def leaves(self) -> set[str]:
         leafNodes = filter(lambda x: x.isLeaf(), self.nodes.values())
         return set(map(lambda x: x.name, leafNodes))
