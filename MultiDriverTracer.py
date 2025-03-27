@@ -57,14 +57,14 @@ def format(instPath: HierInstPath, portName: str) -> str:
     return f"{instPathStr}/{portName}\n"
 
 
-def printLeafPortOf(instPort: InstancePort):
+def printLeafPortOf(instPort: InstancePort, designTree: DesignManager):
     for leafPort in instPort.leaves():
-        leafInstPath = leafPort.instPath
-        if leafPort.range[0] - leafPort.range[1] == 0:
-            outputs.write(format(leafInstPath, leafPort.portWireName))
-        else:
-            for i in range(leafPort.range[1], leafPort.range[0]):
-                outputs.write(format(leafInstPath, f"{leafPort.portWireName}[{i}]"))
+        for absPath in designTree.forward(leafPort.instPath):
+            if leafPort.range[0] - leafPort.range[1] == 0:
+                outputs.write(format(absPath, leafPort.portWireName))
+            else:
+                for i in range(leafPort.range[1], leafPort.range[0] + 1):
+                    outputs.write(format(absPath, f"{leafPort.portWireName}[{i}]"))
 
 
 if __name__ == "__main__":
@@ -93,6 +93,6 @@ if __name__ == "__main__":
                     HierInstPath(container), bundleName, PortDir.fromStr(bundleDir)
                 )
             for instPort in instPortList:
-                printLeafPortOf(instPort)
+                printLeafPortOf(instPort, designTree)
 
     outputs.close()

@@ -68,6 +68,9 @@ class DesignManager:
         instancePort.range = range
         instancePort.isLeaf = isLeaf
         instancePort.connec = connec
+        cl.info(
+            f"new instance port {moduleName}/{portName} range({range[0]}, {range[1]})"
+        )
         if isLeaf:
             assert connec.__len__() == 0
         self.portSet.add(instancePort)
