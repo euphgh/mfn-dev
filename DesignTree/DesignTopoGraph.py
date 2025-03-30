@@ -2,11 +2,12 @@ from DesignTree.Utils import HierInstPath, dictAdd
 from typing import Optional
 import yaml
 from DesignTree.PortXml import PortXmlReader
-from DesignTree.InstancePort import ModuleNode, ModuleLink
+from DesignTree.Node import ModuleNode, ModuleLink
 
-class HierTree:
+
+class DesignTopoGraph:
     """
-    hierarchical tree
+    Design hierarchical topological graph
     """
 
     def __init__(self, yamlFile: str) -> None:
@@ -95,7 +96,7 @@ class HierTree:
             return None
         return node.name
 
-    def forward(self, instPath: HierInstPath):
+    def outer(self, instPath: HierInstPath):
         if instPath.module in self.roots:
             return [instPath]
         # instPath is not from root
@@ -104,11 +105,11 @@ class HierTree:
             pInstPath = HierInstPath(
                 pNode.name, (moduleLink.instance,) + instPath.instances
             )
-            subList = self.forward(pInstPath)
+            subList = self.outer(pInstPath)
             res.extend(subList)
         return res
 
-    def backward(self, instPath: HierInstPath) -> list[HierInstPath]:
+    def inner(self, instPath: HierInstPath) -> list[HierInstPath]:
         moduleName = self.moduleName(instPath)
         assert moduleName is not None
         if self.isLeaf(moduleName):
@@ -117,7 +118,7 @@ class HierTree:
         res: list[HierInstPath] = []
         for sInst, sNode in self.nodes[instPath.module].next.items():
             sInstPath = HierInstPath(sNode.name, instPath.instances + (sInst,))
-            subList = self.backward(sInstPath)
+            subList = self.inner(sInstPath)
             res.extend(subList)
         return res
 

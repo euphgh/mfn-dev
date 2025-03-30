@@ -2,7 +2,6 @@ import sys
 from DesignTree import *
 from typing import Optional
 import re
-from pdb import set_trace
 
 
 class InputParser:
@@ -64,8 +63,10 @@ def format(instPath: HierInstPath, portName: str) -> str:
     return f"{instPathStr}/{portName}\n"
 
 
-def printLeafPortOf(instPath: HierInstPath, portNode: PortWireNode, hierTree: HierTree):
-    for absPath in hierTree.forward(instPath):
+def printLeafPortOf(
+    instPath: HierInstPath, portNode: PortWireNode, hierTree: DesignTopoGraph
+):
+    for absPath in hierTree.outer(instPath):
         if portNode.range.msb - portNode.range.lsb == 0:
             outputs.write(format(absPath, portNode.name))
         else:
@@ -80,7 +81,7 @@ if __name__ == "__main__":
     inputParser = InputParser(multidriveLog)
     outputs = open("outputs.txt", "w")
     print("start load yaml file")
-    hierTree = HierTree(yamlFile)
+    hierTree = DesignTopoGraph(yamlFile)
     print("finish load yaml file")
     success = hierTree.tops({"mpu"})
     assert success == {"mpu"}

@@ -1,4 +1,4 @@
-from DesignTree.Utils import HierInstPath, WireRange, dictAdd, cl
+from DesignTree.Utils import HierInstPath, WireRange, dictAdd
 from DesignTree.PortXml import PortXmlParser, WireConnec, EndBlock
 from typing import Optional
 from dataclasses import dataclass, field
@@ -38,7 +38,11 @@ class ModuleNode:
     def isLeaf(self):
         return self.next.__len__() == 0
 
-    def __addPortIfNotExist(self, endBlock: EndBlock, wireRange: WireRange):
+    def __getOrInsertPortNode(self, endBlock: EndBlock, wireRange: WireRange):
+        """
+        get the port node if the port of end block is exist in self.ports
+        else new and insert a port node to self.ports and return it.
+        """
         portName = endBlock.portWireName
         portNode = self.ports.get(portName)
         if portNode is not None:
@@ -94,7 +98,7 @@ class ModuleNode:
                 assert selfEndBlock.portWireName == wireName
                 assert selfEndBlock.portBundleName == bundleName
 
-                selfPort = self.__addPortIfNotExist(selfEndBlock, wireConnec.range)
+                selfPort = self.__getOrInsertPortNode(selfEndBlock, wireConnec.range)
 
                 # travel other end block to link self port and inner port
                 for innerEndBlock in wireConnec.endBlocks:
@@ -105,7 +109,7 @@ class ModuleNode:
                     # new inner port node
                     subModuleNode = self.next[innerEndBlock.instName]
                     # if innerEndBlock.portWireName not exist, create a new port node, new PortWireNode
-                    innerPort = subModuleNode.__addPortIfNotExist(
+                    innerPort = subModuleNode.__getOrInsertPortNode(
                         innerEndBlock, wireConnec.range
                     )
 
@@ -118,13 +122,7 @@ class ModuleNode:
                     )
                     assert selfPort.module is not None
                     assert innerPort.module is not None
-                    cl.info(
-                        f"set {selfPort.module.name}'s {selfPort.name} inner link to {forward} {innerPort.module.name}'s {innerPort.name}"
-                    )
                     dictAdd(selfPort.inner, forward, innerPort)
-                    cl.info(
-                        f"set {innerPort.module.name}'s {innerPort.name} outer link to {backward} {selfPort.module.name}'s {selfPort.name}"
-                    )
                     dictAdd(innerPort.outer, backward, selfPort)
 
     def loadLocalConnec(self, localConnect: PortXmlParser):
@@ -141,7 +139,7 @@ class ModuleNode:
                     # new inner port node
                     subModuleNode = self.next[endBlock.instName]
                     portNode = PortWireNode(endBlock, wireConnec.range, subModuleNode)
-                    portNode = subModuleNode.__addPortIfNotExist(
+                    portNode = subModuleNode.__getOrInsertPortNode(
                         endBlock, wireConnec.range
                     )
                     portNodeList.append((endBlock.instName, portNode))
@@ -159,12 +157,6 @@ class ModuleNode:
                         )
                         assert iPortNode.module is not None
                         assert jPortNode.module is not None
-                        cl.info(
-                            f"set {iPortNode.module.name}'s {iPortNode.name} outer link to {forward} {jPortNode.module.name}'s {jPortNode.name}"
-                        )
-                        cl.info(
-                            f"set {jPortNode.module.name}'s {jPortNode.name} outer link to {forward} {iPortNode.module.name}'s {iPortNode.name}"
-                        )
                         dictAdd(iPortNode.outer, forward, jPortNode)
                         dictAdd(jPortNode.outer, backward, iPortNode)
 
