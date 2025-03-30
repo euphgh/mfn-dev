@@ -53,6 +53,7 @@ assert isinstance(logger, CondLogger)
 cl: CondLogger = logger
 
 
+@dataclass(frozen=True)
 class HierInstPath:
     """
     representing module and instances hierarchy
@@ -64,15 +65,12 @@ class HierInstPath:
     please use DesignManager.add/sub to process two HierInstPath.
     """
 
-    def __init__(self, module: str, instances: "str|tuple[str, ...]" = ()) -> None:
-        self.module = module
-        if isinstance(instances, str):
-            self.instances = tuple(instances.split("."))
-        else:
-            self.instances = instances
-
-    def __str__(self) -> str:
-        return self.join(".")
+    # def __init__(self, module: str, instances: "str|tuple[str, ...]" = ()) -> None:
+    module: str
+    instances: tuple[str, ...]
+    # if isinstance(instances, str):
+    # else:
+    #     self.instances = instances
 
     def join(self, split: str) -> str:
         return split.join((self.module,) + self.instances)
@@ -83,14 +81,6 @@ class HierInstPath:
 
     def addInst(self, that: str):
         return HierInstPath(self.module, self.instances + (that,))
-
-    def __eq__(self, value: object) -> bool:
-        if isinstance(value, HierInstPath):
-            return self.__str__() == value.__str__()
-        return False
-
-    def __hash__(self) -> int:
-        return hash(self.__str__())
 
     @staticmethod
     def empty() -> "HierInstPath":

@@ -64,9 +64,9 @@ def format(instPath: HierInstPath, portName: str) -> str:
     return f"{instPathStr}/{portName}\n"
 
 
-def printLeafPortOf(instPath: HierInstPath, portNdoe: PortWireNode, hierTree: HierTree):
+def printLeafPortOf(instPath: HierInstPath, portNode: PortWireNode, hierTree: HierTree):
     for absPath in hierTree.forward(instPath):
-        if portNdoe.range.msb - portNdoe.range.lsb == 0:
+        if portNode.range.msb - portNode.range.lsb == 0:
             outputs.write(format(absPath, portNode.name))
         else:
             for i in range(portNode.range.lsb, portNode.range.msb + 1):
@@ -92,12 +92,19 @@ if __name__ == "__main__":
         bundle = inputParser.getBundle()
         moduleNode = hierTree.nodes[container]
         assert moduleNode is not None
-        portNodes = moduleNode.bundleOf(bundle)
-        assert portNodes is not None
+        nodeOfModulePort = moduleNode.portOf(bundle)
+        assert nodeOfModulePort is not None
 
-        set_trace()
-        for portNode in portNodes:
-            res = portNode.leaves(HierInstPath(container))
+        nodeOfLocalConnect = moduleNode.localOf(bundle)
+        assert nodeOfLocalConnect is not None
+
+        for node in nodeOfModulePort:
+            res = node.leaves(HierInstPath(container))
+            for leafInstPath, leafNode in res:
+                printLeafPortOf(leafInstPath, leafNode, hierTree)
+
+        for instName, node in nodeOfLocalConnect:
+            res = node.leaves(HierInstPath(container, (instName,)))
             for leafInstPath, leafNode in res:
                 printLeafPortOf(leafInstPath, leafNode, hierTree)
 
