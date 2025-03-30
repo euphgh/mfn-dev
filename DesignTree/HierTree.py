@@ -1,25 +1,8 @@
-from DesignTree.Utils import HierInstPath
+from DesignTree.Utils import HierInstPath, dictAdd
 from typing import Optional
 import yaml
-
-
-class ModuleNode:
-    """
-    Node of Hierarchical Tree
-
-    self.name: module name
-    self.next: name of instance in the module -> inner module node
-    self.prev: instance name of self in the outer module -> outer module node
-    """
-
-    def __init__(self, name: str) -> None:
-        self.name: str = name
-        self.next = dict[str, ModuleNode]()
-        self.prev = dict[str, ModuleNode]()
-
-    def isLeaf(self):
-        return self.next.__len__() == 0
-
+from DesignTree.PortXml import PortXmlReader
+from DesignTree.InstancePort import ModuleNode, ModuleLink
 
 class HierTree:
     """
@@ -36,7 +19,7 @@ class HierTree:
             for line in data["CONTAINER_CLASS_NAMES"]:
                 assert isinstance(line, str)
                 pModule = line.strip()
-                self.nodes[pModule] = ModuleNode(pModule)
+                dictAdd(self.nodes, pModule, ModuleNode(pModule))
                 self.roots.add(pModule)
 
             for pair in data["ALL_BLOCK_INSTANCE_PARENT_PATH"]:
@@ -49,11 +32,36 @@ class HierTree:
                 sModuleNode = self.nodes.setdefault(sModule, ModuleNode(sModule))
 
                 # set double direct link
-                pModuleNode.next[instanceName] = sModuleNode
-                sModuleNode.prev[instanceName] = pModuleNode
+                dictAdd(pModuleNode.next, instanceName, sModuleNode)
+                dictAdd(
+                    sModuleNode.prev, ModuleLink(pModule, instanceName), pModuleNode
+                )
 
                 if sModule in self.roots:
                     self.roots.remove(sModule)
+
+    def tops(self, modules: set[str]):
+        """
+        return a set of successfully selected top module
+        """
+        moduleSet = dict[str, ModuleNode]()
+        success = set[str]()
+        for top in modules:
+            topNode = self.nodes.get(top)
+            if topNode == None:
+                continue
+            success.add(top)
+            queue = list[ModuleNode]()
+            queue.append(topNode)
+            while queue.__len__() > 0:
+                currNode = queue.pop()
+                moduleSet[currNode.name] = currNode
+                for nextModule in currNode.next.values():
+                    queue.append(self.nodes[nextModule.name])
+
+        self.roots = success
+        self.nodes = moduleSet
+        return success
 
     def isLeaf(self, moduleName: str) -> bool:
         node = self.nodes.get(moduleName)
@@ -92,8 +100,10 @@ class HierTree:
             return [instPath]
         # instPath is not from root
         res: list[HierInstPath] = []
-        for pInst, pNode in self.nodes[instPath.module].prev.items():
-            pInstPath = HierInstPath(pNode.name, (pInst,) + instPath.instances)
+        for moduleLink, pNode in self.nodes[instPath.module].prev.items():
+            pInstPath = HierInstPath(
+                pNode.name, (moduleLink.instance,) + instPath.instances
+            )
             subList = self.forward(pInstPath)
             res.extend(subList)
         return res
@@ -110,3 +120,23 @@ class HierTree:
             subList = self.backward(sInstPath)
             res.extend(subList)
         return res
+
+    def createPortTopo(self, xmlDir: str):
+        self.portXmls = PortXmlReader(xmlDir, self.containers())
+        for module, node in self.nodes.items():
+            if node.isLeaf():
+                continue
+            modulePortXml = self.portXmls.load(module, "port")
+            assert modulePortXml is not None
+            node.loadPortXml(modulePortXml)
+            moduleLocalConnect = self.portXmls.load(module, "local_connect")
+            assert moduleLocalConnect is not None
+            node.loadLocalConnec(moduleLocalConnect)
+
+    def concate(
+        self, left: HierInstPath, right: HierInstPath
+    ) -> Optional[HierInstPath]:
+        if self.moduleName(left) == right.module:
+            return HierInstPath(left.module, left.instances + right.instances)
+        else:
+            return None

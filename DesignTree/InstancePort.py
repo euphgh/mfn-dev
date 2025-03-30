@@ -1,49 +1,183 @@
-from DesignTree.Utils import HierInstPath, PortDir, WireRange
-from DesignTree.HierTree import ModuleNode
+from DesignTree.Utils import HierInstPath, WireRange, dictAdd
+from DesignTree.PortXml import PortXmlParser, WireConnec, EndBlock
 from typing import Optional
-from xml.etree.ElementTree import ElementTree as XmlDoc
-from xml.etree.ElementTree import Element
+from dataclasses import dataclass, field
 
-class InstancePort:
+
+@dataclass(frozen=True)
+class ModuleLink:
+    container: str
+    instance: str
+
+
+class ModuleNode:
     """
-    wire unit, not bundle
-    user should not direct create InstancePort
-    should use DesignManager.addInstancePortFromBundle
+    Node of Hierarchical Tree
+
+    self.name: module name
+    self.next: name of instance in the module -> inner module node
+    self.prev: instance name of self in the outer module -> outer module node
     """
 
-    def __init__(self) -> None:
-        self.instPath = HierInstPath.empty()
-        self.moduleName = str()
-        self.portWireName = str()
-        self.range = tuple[int, int]()
-        self.wireDir = PortDir.EMPTY
-        self.isLeaf = False
-        self.connec = list["InstancePort"]()
+    def __init__(self, name: str) -> None:
+        self.name: str = name
+        # sub instance name -> module node
+        self.next = dict[str, ModuleNode]()
+        # parent module name + self instance name -> module node
+        self.prev = dict[ModuleLink, ModuleNode]()
+        # port name -> port node
+        self.ports = dict[str, PortWireNode]()
+        # local connect: wire name -> instance name, port node
+        self.local = dict[str, list[tuple[str, PortWireNode]]]()
+        # bundle name to wire name set
+        self.bundle2wire = dict[str, set[str]]()
 
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, InstancePort):
-            return (
-                self.instPath == other.instPath
-                and self.portWireName == other.portWireName
-            )
-        return False
+        self.needPortXml = True
+        self.needLocolConnect = True
 
-    def __hash__(self):
-        return hash(self.instPath.__str__() + self.portWireName)
+    def isLeaf(self):
+        return self.next.__len__() == 0
 
-    def leaves(self) -> list["InstancePort"]:
-        if self.isLeaf:
-            return [self]
-        res: list["InstancePort"] = []
-        for connec in self.connec:
-            res.extend(connec.leaves())
-        return res
+    def doubleLink(
+        self,
+        wireConnec: WireConnec,
+        iInstName: str,
+        jInstName: str,
+        iPortNode: "PortWireNode",
+        jPortNode: "PortWireNode",
+    ):
+        # double link port node
+        bundleConnec = wireConnec.bundleLink
+        assert bundleConnec is not None
+        i2j = WireLink(
+            self.name,
+            iInstName,
+            jInstName,
+            jPortNode.name,
+            wireConnec.name,
+            bundleConnec.name,
+        )
+        j2i = WireLink(
+            self.name,
+            jInstName,
+            iInstName,
+            iPortNode.name,
+            wireConnec.name,
+            bundleConnec.name,
+        )
+        return (i2j, j2i)
 
-    def __str__(self) -> str:
-        if self.isLeaf:
-            return f"leaf: {self.instPath.__str__()}:{self.portWireName}:{self.wireDir}"
-        else:
-            return f"container: {self.instPath.__str__()}:{self.portWireName}:{self.wireDir}"
+    def loadPortXml(self, portXml: PortXmlParser):
+        assert self.needPortXml
+        self.needPortXml = False
+        for bundleName, bundleConnec in portXml.bundleDict.items():
+            wireNameSet = {wire for wire in bundleConnec.wires.keys()}
+            dictAdd(self.bundle2wire, bundleName, wireNameSet)
+
+            for wireName, wireConnec in bundleConnec.wires.items():
+                # endblock with module name equal to self name
+                selfEndBlock = wireConnec.endBlockOf(self.name)
+                assert selfEndBlock is not None
+                # basic assumption
+                assert selfEndBlock.portWireName == wireName
+                assert selfEndBlock.portBundleName == bundleName
+
+                # new self port node
+                selfPort = PortWireNode(selfEndBlock, wireConnec.range, self)
+                if selfEndBlock.portWireName in self.ports:
+                    thatPort = self.ports[selfEndBlock.portWireName]
+                    assert thatPort.dir == selfPort.dir
+                    assert thatPort.range == selfPort.range
+                    assert thatPort.module == selfPort.module
+                    assert thatPort.inner.__len__() == 0
+                else:
+                    self.ports[selfEndBlock.portWireName] = selfPort
+
+                # travel other end block to link self port and inner port
+                for innerEndBlock in wireConnec.endBlocks:
+                    # skil self end block
+                    if innerEndBlock == selfEndBlock:
+                        continue
+
+                    # new inner port node
+                    subModuleNode = self.next[innerEndBlock.instName]
+                    # if innerEndBlock.portWireName not exist, create a new port node, new PortWireNode
+                    innerPort = subModuleNode.ports.setdefault(
+                        innerEndBlock.portWireName,
+                        PortWireNode(innerEndBlock, wireConnec.range, subModuleNode),
+                    )
+
+                    forward, backward = self.doubleLink(
+                        wireConnec,
+                        "",
+                        innerEndBlock.instName,
+                        selfPort,
+                        innerPort,
+                    )
+                    dictAdd(selfPort.inner, forward, innerPort)
+                    dictAdd(innerPort.outer, backward, selfPort)
+
+    def loadLocalConnec(self, localConnect: PortXmlParser):
+        assert self.needLocolConnect
+        self.needLocolConnect = False
+        for bundleName, bundleConnec in localConnect.bundleDict.items():
+            wireNameSet = {wire for wire in bundleConnec.wires.keys()}
+            dictAdd(self.bundle2wire, bundleName, wireNameSet)
+
+            for wireName, wireConnec in bundleConnec.wires.items():
+                # (instance name, port node)
+                portNodeList = list[tuple[str, PortWireNode]]()
+                for endBlock in wireConnec.endBlocks:
+                    # new inner port node
+                    subModuleNode = self.next[endBlock.instName]
+                    portNode = PortWireNode(endBlock, wireConnec.range, subModuleNode)
+                    portNodeList.append((endBlock.instName, portNode))
+
+                for i in range(portNodeList.__len__()):
+                    iInstName, iPortNode = portNodeList[i]
+                    for j in range(i + 1, portNodeList.__len__()):
+                        jInstName, jPortNode = portNodeList[j]
+                        forward, backward = self.doubleLink(
+                            wireConnec,
+                            iInstName,
+                            jInstName,
+                            iPortNode,
+                            jPortNode,
+                        )
+                        dictAdd(iPortNode.outer, forward, jPortNode)
+                        dictAdd(jPortNode.outer, backward, iPortNode)
+
+                dictAdd(self.local, wireName, portNodeList)
+
+    def bundleOf(self, bundle: str):
+        """
+        return None if bundle is not found in this module
+        else return a list of PortWireNode
+        """
+        wireSet = self.bundle2wire.get(bundle)
+        if wireSet is not None:
+            res = list[PortWireNode]()
+            for wireName in wireSet:
+                localList = self.local.get(wireName)
+                portNode = self.ports.get(wireName)
+                if portNode is not None:
+                    res.append(portNode)
+                if localList is not None:
+                    res.extend(map(lambda x: x[1], localList))
+            return res
+        return None
+
+
+@dataclass(frozen=True)
+class WireLink:
+    container: str
+    # if is container port, it should be sub instance name
+    thisInst: str
+    # for outer
+    thatInst: str
+    port: str
+    wire: str = field(compare=False)
+    bundle: str = field(compare=False)
 
 
 class PortWireNode:
@@ -51,78 +185,25 @@ class PortWireNode:
     Node for Hierarchy Port Tree
     """
 
-    def __init__(self) -> None:
-        self.name = str()  # wire element attrib name
-        self.bundle = str()  # bundle element attrib name
-        self.range = WireRange()
-        self.portSignalName = str()  # port wire name
-        self.portName = str()  # port bundle name
-        self.wireDir = PortDir.EMPTY
-        self.bundleDir = PortDir.EMPTY
-        self.module: Optional[ModuleNode] = None
-        # instance name + port name
-        self.inner = dict[str, PortSet]()
-        self.outer = dict[str, PortSet]()
+    def __init__(
+        self, endBlock: EndBlock, wireRange: WireRange, moduleNode: ModuleNode
+    ) -> None:
+        self.dir = endBlock.wireDir
+        self.name = endBlock.portWireName
+        self.range = wireRange
+        self.module: Optional[ModuleNode] = moduleNode
+        # sub instance name + port name -> port node
+        self.inner = dict[WireLink, PortWireNode]()
+        # parent instance name + port name -> port node
+        # include peers and parents
+        self.outer = dict[WireLink, PortWireNode]()
 
-
-class PortSet:
-    """
-    all port of a module
-    a pointer of module node
-    """
-
-    def __init__(self) -> None:
-        self.nodes = dict[str, PortWireNode]()
-
-    def loadPortXml(self, xml: XmlDoc) -> None:
-        pass
-
-    def wireOf(self, name: str) -> Optional[PortWireNode]:
-        return self.nodes.get(name)
-
-    def bundleOf(self, bundle: str) -> list[PortWireNode]:
-        return list(filter(lambda x: x.portName == bundle, self.nodes.values()))
-
-
-class PortManager:
-    def __init__(self) -> None:
-        # module name -> PortSet
-        self.portSetDict = dict[str, PortSet]()
-
-    def loadPortXml(self, module: ModuleNode, xml: XmlDoc):
-        containerName = xml.getroot().attrib["container"]
-        assert containerName == module.name
-        portSet = PortSet()
-        root = xml.getroot()
-
-        for bundleElem in root.findall("bundle"):
-            assert isinstance(bundleElem, Element)
-            bundle = bundleElem.attrib["name"]
-            for wireElem in bundleElem.findall("wire"):
-                portWireNode = PortWireNode()
-                portWireNode.name = wireElem.attrib["name"]
-                portWireNode.bundle = bundle
-                portWireNode.range = WireRange(
-                    int(wireElem.attrib["high_bit"]),
-                    int(wireElem.attrib["low_bit"]),
-                )
-                for endBlockElem in wireElem.findall("end_block"):
-                    blockInstName = endBlockElem.attrib["block_inst_name"]
-                    blockClassName = endBlockElem.attrib["block_class_name"]
-                    portName = endBlockElem.attrib["port_name"]
-                    portSignalName = endBlockElem.attrib["port_signal_name"]
-                    portSignalDir = PortDir.fromStr(
-                        endBlockElem.attrib["port_signal_dir"]
-                    )
-                    portDir = PortDir.fromStr(endBlockElem.attrib["port_dir"])
-                    if blockClassName == module.name:
-                        portWireNode.bundleDir = portDir
-                        portWireNode.wireDir = portSignalDir
-                        portWireNode.module = module
-                        portWireNode.portSignalName = portSignalName
-                        portWireNode.portName = portName
-                    else:
-                        subPortSet = self.portSetDict.setdefault(
-                            blockClassName, PortSet()
-                        )
-                        portWireNode.inner[blockInstName] = subPortSet
+    def leaves(
+        self, instPath: HierInstPath
+    ) -> list[tuple[HierInstPath, "PortWireNode"]]:
+        if self.inner.__len__() == 0:
+            return [(instPath, self)]
+        res = list[tuple[HierInstPath, "PortWireNode"]]()
+        for link, node in self.inner.items():
+            res.extend(node.leaves(instPath.addInst(link.thatInst)))
+        return res

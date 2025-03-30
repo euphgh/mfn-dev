@@ -11,7 +11,8 @@ PortDir: present the direct of wire or bundle
 
 from enum import Enum
 import logging
-
+from typing import Dict, TypeVar
+from dataclasses import dataclass
 
 class ErrorRaisingHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
@@ -29,10 +30,10 @@ consoleHandler = logging.StreamHandler()
 consoleHandler.setLevel(logging.ERROR)
 
 # 文件输出
-fileHandler = logging.FileHandler("DesignTree.log")
+fileHandler = logging.FileHandler("DesignTree.log", "w")
 fileHandler.setLevel(logging.DEBUG)
 
-formatter = logging.Formatter("%(levelname)s:%(message)s")
+formatter = logging.Formatter("%(levelname)s: %(message)s")
 consoleHandler.setFormatter(formatter)
 fileHandler.setFormatter(formatter)
 
@@ -123,8 +124,16 @@ class PortDir(Enum):
         assert False, f"Direct str {dir} is not expected"
 
 
+@dataclass(frozen=True)
 class WireRange:
+    msb: int
+    lsb: int
 
-    def __init__(self, msb: int = 0, lsb: int = 0) -> None:
-        self.msb: int = msb
-        self.lsb: int = lsb
+K = TypeVar("K")  # 泛型键类型
+V = TypeVar("V")  # 泛型值类型
+
+
+def dictAdd(d: Dict[K, V], key: K, value: V, error: bool = True):
+    assert key not in d, f"dict add duplicate for key {key}"
+    d[key] = value
+    return True

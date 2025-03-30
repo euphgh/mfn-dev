@@ -2,23 +2,26 @@ import sys
 from DesignTree import *
 from typing import Optional
 import re
-from io import StringIO
+from pdb import set_trace
 
 
 class InputParser:
     portPattern = r"\"(\w+):(\w+):(receive|transmit)\""
-    instPattern = r"blkclass:(\w+) hier:(\w+)"
+    containerPattern = r"blkclass:(\w+) hier:(\w+)"
+    bundlePattern = r"ERROR:  inst:(\w+)\("
 
     def __init__(self, fileName: str) -> None:
         self.file = open(fileName, "r", encoding="utf-8")
         self.hier = str()
-        self.blkClass = str()
+        self.container = str()
+        self.bundle = str()
         self.items: list[tuple[str, str, str]] = []
 
     def getContainer(self) -> str:
-        if self.blkClass != self.hier:
-            print(f"found blkClass: {self.blkClass} != hier:{self.hier}")
-        return self.blkClass
+        return self.container
+
+    def getBundle(self) -> str:
+        return self.bundle
 
     def nextItem(self) -> Optional[tuple[str, str, str]]:
         if self.items.__len__() == 0:
@@ -34,10 +37,14 @@ class InputParser:
             return False
 
         # parser "blkClass:foo hier:bar.foo"
-        match = re.search(InputParser.instPattern, line)
+        match = re.search(InputParser.containerPattern, line)
         assert match is not None
-        self.blkClass = match.group(1)
-        self.hier = match.group(2)
+        self.container = match.group(1)
+
+        # parser "inst:bundleName"
+        match = re.search(InputParser.bundlePattern, line)
+        assert match is not None
+        self.bundle = match.group(1)
 
         # parser "zsc:ZSC_USB_CG_ctrl:transmit"
         matches = re.findall(InputParser.portPattern, line)
@@ -57,14 +64,13 @@ def format(instPath: HierInstPath, portName: str) -> str:
     return f"{instPathStr}/{portName}\n"
 
 
-def printLeafPortOf(instPort: InstancePort, designTree: DesignManager):
-    for leafPort in instPort.leaves():
-        for absPath in designTree.forward(leafPort.instPath):
-            if leafPort.range[0] - leafPort.range[1] == 0:
-                outputs.write(format(absPath, leafPort.portWireName))
-            else:
-                for i in range(leafPort.range[1], leafPort.range[0] + 1):
-                    outputs.write(format(absPath, f"{leafPort.portWireName}[{i}]"))
+def printLeafPortOf(instPath: HierInstPath, portNdoe: PortWireNode, hierTree: HierTree):
+    for absPath in hierTree.forward(instPath):
+        if portNdoe.range.msb - portNdoe.range.lsb == 0:
+            outputs.write(format(absPath, portNode.name))
+        else:
+            for i in range(portNode.range.lsb, portNode.range.msb + 1):
+                outputs.write(format(absPath, f"{portNode.name}[{i}]"))
 
 
 if __name__ == "__main__":
@@ -72,27 +78,27 @@ if __name__ == "__main__":
     xmlDir: str = sys.argv[2]
     yamlFile: str = f"{xmlDir}/logical_info.yml"
     inputParser = InputParser(multidriveLog)
-    designTree = DesignManager(yamlFile, xmlDir)
     outputs = open("outputs.txt", "w")
+    print("start load yaml file")
+    hierTree = HierTree(yamlFile)
+    print("finish load yaml file")
+    success = hierTree.tops({"mpu"})
+    assert success == {"mpu"}
+    print("start load xml file")
+    hierTree.createPortTopo(xmlDir)
+    print("finish load xml file")
     while inputParser.readLine():
         container = inputParser.getContainer()
-        while 1:
-            result = inputParser.nextItem()
-            if result is None:
-                break
-            instName, bundleName, bundleDir = result
-            instPortList = None
-            if container != instName:
-                instPortList = designTree.addInstancePortFromBundle(
-                    HierInstPath(container, instName),
-                    bundleName,
-                    PortDir.fromStr(bundleDir),
-                )
-            else:
-                instPortList = designTree.addInstancePortFromBundle(
-                    HierInstPath(container), bundleName, PortDir.fromStr(bundleDir)
-                )
-            for instPort in instPortList:
-                printLeafPortOf(instPort, designTree)
+        bundle = inputParser.getBundle()
+        moduleNode = hierTree.nodes[container]
+        assert moduleNode is not None
+        portNodes = moduleNode.bundleOf(bundle)
+        assert portNodes is not None
+
+        set_trace()
+        for portNode in portNodes:
+            res = portNode.leaves(HierInstPath(container))
+            for leafInstPath, leafNode in res:
+                printLeafPortOf(leafInstPath, leafNode, hierTree)
 
     outputs.close()
