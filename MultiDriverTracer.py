@@ -62,9 +62,13 @@ def format(instPath: HierInstPath, portName: str) -> str:
     instPathStr = instPath.join("/")
     return f"{instPathStr}/{portName}\n"
 
+outputs = open("outputs.txt", "w")
+
 
 def printLeafPortOf(
-    instPath: HierInstPath, portNode: PortWireNode, hierTree: DesignTopoGraph
+    instPath: HierInstPath,
+    portNode: PortWireNode,
+    hierTree: DesignTopoGraph,
 ):
     for absPath in hierTree.outer(instPath):
         if portNode.range.msb - portNode.range.lsb == 0:
@@ -74,20 +78,15 @@ def printLeafPortOf(
                 outputs.write(format(absPath, f"{portNode.name}[{i}]"))
 
 
-if __name__ == "__main__":
+def main():
     multidriveLog: str = sys.argv[1]
     xmlDir: str = sys.argv[2]
     yamlFile: str = f"{xmlDir}/logical_info.yml"
     inputParser = InputParser(multidriveLog)
-    outputs = open("outputs.txt", "w")
-    print("start load yaml file")
     hierTree = DesignTopoGraph(yamlFile)
-    print("finish load yaml file")
     success = hierTree.tops({"mpu"})
     assert success == {"mpu"}
-    print("start load xml file")
     hierTree.createPortTopo(xmlDir)
-    print("finish load xml file")
     while inputParser.readLine():
         container = inputParser.getContainer()
         bundle = inputParser.getBundle()
@@ -100,7 +99,7 @@ if __name__ == "__main__":
         assert nodeOfLocalConnect is not None
 
         for node in nodeOfModulePort:
-            res = node.leaves(HierInstPath(container))
+            res = node.leaves(HierInstPath(container, ()))
             for leafInstPath, leafNode in res:
                 printLeafPortOf(leafInstPath, leafNode, hierTree)
 
@@ -110,3 +109,13 @@ if __name__ == "__main__":
                 printLeafPortOf(leafInstPath, leafNode, hierTree)
 
     outputs.close()
+
+
+if __name__ == "__main__":
+    main()
+    # 运行性能分析并存储到文件
+    # cProfile.run("main()", "profile.txt")
+
+    # 读取并分析
+    # stats = pstats.Stats("profile.txt")
+    # stats.strip_dirs().sort_stats("cumulative").print_stats(100)

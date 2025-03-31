@@ -134,10 +134,25 @@ class DesignTopoGraph:
             assert moduleLocalConnect is not None
             node.loadLocalConnec(moduleLocalConnect)
 
-    def concate(
+    def instPathAdd(
         self, left: HierInstPath, right: HierInstPath
     ) -> Optional[HierInstPath]:
         if self.moduleName(left) == right.module:
             return HierInstPath(left.module, left.instances + right.instances)
         else:
             return None
+
+    def instPathSub(
+        self, left: HierInstPath, right: HierInstPath
+    ) -> Optional[HierInstPath]:
+        if left.module != right.module:
+            return None
+        if left.instances.__len__() <= right.instances.__len__():
+            return None
+        for i in range(right.instances.__len__()):
+            if left.instances[i] != right.instances[i]:
+                return None
+        subModuleName = self.moduleName(left)
+        if subModuleName is None:
+            return None
+        return HierInstPath(subModuleName, left.instances[right.instances.__len__() :])

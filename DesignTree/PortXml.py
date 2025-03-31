@@ -132,12 +132,6 @@ class PortXmlParser:
 
                 dictAdd(bundleConnec.wires, wireConnec.name, wireConnec)
 
-    def findByBundle(self, name: str) -> Optional[BundleConnec]:
-        return self.bundleDict.get(name, None)
-
-    def findByWire(self, name: str) -> Optional[WireConnec]:
-        return self.wireDict.get(name, None)
-
 
 def scanFileFrom(dir: str, suffix: str):
     return {
