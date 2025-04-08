@@ -1,8 +1,25 @@
-from DesignTree.Utils import HierInstPath, dictAdd
+from DesignTree.Utils import HierInstPath, dictAdd, cl
 from typing import Optional
-import yaml
 from DesignTree.PortXml import PortXmlReader
 from DesignTree.Node import ModuleNode, ModuleLink
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class InstParentPath:
+    """
+    <container> instantiates <subMoudle> with name <instance>
+    """
+
+    container: str
+    instance: str
+    subModule: str
+
+    @staticmethod
+    def fromStr(x: str) -> "InstParentPath":
+        instPath, sModule = x.split(":")
+        pModule, instance = instPath.split(".")
+        return InstParentPath(pModule, instance, sModule)
 
 
 class DesignTopoGraph:
@@ -10,36 +27,36 @@ class DesignTopoGraph:
     Design hierarchical topological graph
     """
 
-    def __init__(self, yamlFile: str) -> None:
+    def __init__(self) -> None:
         self.nodes = dict[str, ModuleNode]()
         self.roots = set[str]()
-        with open(yamlFile, "r", encoding="utf-8") as file:
-            data = yaml.safe_load(file)
-            assert isinstance(data, dict)
 
-            for line in data["CONTAINER_CLASS_NAMES"]:
-                assert isinstance(line, str)
-                pModule = line.strip()
-                dictAdd(self.nodes, pModule, ModuleNode(pModule))
-                self.roots.add(pModule)
+    def createModuleHier(
+        self, containerNameList: list[str], instParentPaths: list[InstParentPath]
+    ):
+        for container in containerNameList:
+            dictAdd(self.nodes, container, ModuleNode(container))
+            self.roots.add(container)
 
-            for pair in data["ALL_BLOCK_INSTANCE_PARENT_PATH"]:
-                assert isinstance(pair, str)
-                pathName, sModule = pair.split(":")
-                pModule, instanceName = pathName.split(".")
+        for p in instParentPaths:
 
-                pModuleNode = self.nodes[pModule]
-                # get value if key exist, else insert new value and return
-                sModuleNode = self.nodes.setdefault(sModule, ModuleNode(sModule))
-
-                # set double direct link
-                dictAdd(pModuleNode.next, instanceName, sModuleNode)
-                dictAdd(
-                    sModuleNode.prev, ModuleLink(pModule, instanceName), pModuleNode
+            if p.container not in self.nodes:
+                dictAdd(self.nodes, p.container, ModuleNode(p.container))
+                self.roots.add(p.container)
+                cl.warning(
+                    f"logical/tile_info.xml Container List not cover instance parent path: {p.container}"
                 )
 
-                if sModule in self.roots:
-                    self.roots.remove(sModule)
+            pModuleNode = self.nodes[p.container]
+            # get value if key exist, else insert new value and return
+            sModuleNode = self.nodes.setdefault(p.subModule, ModuleNode(p.subModule))
+
+            # set double direct link
+            dictAdd(pModuleNode.next, p.instance, sModuleNode)
+            dictAdd(sModuleNode.prev, ModuleLink(p.container, p.instance), pModuleNode)
+
+            if p.subModule in self.roots:
+                self.roots.remove(p.subModule)
 
     def tops(self, modules: set[str]):
         """
@@ -95,6 +112,20 @@ class DesignTopoGraph:
         if node is None:
             return None
         return node.name
+
+    def moduleNode(self, instPath: HierInstPath) -> Optional[ModuleNode]:
+        if instPath.instances.__len__() == 0:
+            assert instPath.module in self.nodes
+            return self.nodes[instPath.module]
+
+        node = self.nodes[instPath.module]
+        for instanceName in instPath.instances:
+            if node == None:
+                break
+            node = node.next.get(instanceName)
+        if node is None:
+            return None
+        return node
 
     def outer(self, instPath: HierInstPath):
         if instPath.module in self.roots:
