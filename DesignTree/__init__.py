@@ -1,5 +1,12 @@
 from .Utils import PortDir, HierInstPath
 from .Node import PortWireNode
-from .DesignTopoGraph import DesignTopoGraph
+from .LogicalAndTile import LogicalTopoGraph, TileTopoGraph, LogicalTileMap
 
-__all__ = ["HierInstPath", "PortDir", "DesignTopoGraph", "PortWireNode"]
+__all__ = [
+    "HierInstPath",
+    "PortDir",
+    "LogicalTopoGraph",
+    "TileTopoGraph",
+    "PortWireNode",
+    "LogicalTileMap",
+]

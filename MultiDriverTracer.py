@@ -68,7 +68,7 @@ outputs = open("outputs.txt", "w")
 def printLeafPortOf(
     instPath: HierInstPath,
     portNode: PortWireNode,
-    hierTree: DesignTopoGraph,
+    hierTree: LogicalTopoGraph,
 ):
     for absPath in hierTree.outer(instPath):
         if portNode.range.msb - portNode.range.lsb == 0:
@@ -83,7 +83,7 @@ def main():
     xmlDir: str = sys.argv[2]
     yamlFile: str = f"{xmlDir}/logical_info.yml"
     inputParser = InputParser(multidriveLog)
-    hierTree = DesignTopoGraph(yamlFile)
+    hierTree = LogicalTopoGraph(yamlFile)
     success = hierTree.tops({"mpu"})
     assert success == {"mpu"}
     hierTree.createPortTopo(xmlDir)
@@ -113,9 +113,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    # 运行性能分析并存储到文件
-    # cProfile.run("main()", "profile.txt")
-
-    # 读取并分析
-    # stats = pstats.Stats("profile.txt")
-    # stats.strip_dirs().sort_stats("cumulative").print_stats(100)
