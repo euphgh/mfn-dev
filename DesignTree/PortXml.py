@@ -119,6 +119,11 @@ class PortXmlParser:
                     endBlock.moduleName = endBlockElem.attrib["block_class_name"]
                     endBlock.portBundleName = endBlockElem.attrib["port_name"]
                     endBlock.portWireName = endBlockElem.attrib["port_signal_name"]
+                    if endBlock.portBundleName == "" or endBlock.portWireName == "":
+                        cl.warning(
+                            f"skip {moduleName}_port/local_connect.xml bundle {bundleConnec.name}'s wire {wireConnec.name} empty endBlock"
+                        )
+                        continue
                     # direction
                     endBlock.wireDir = PortDir.fromStr(
                         endBlockElem.attrib["port_signal_dir"]
