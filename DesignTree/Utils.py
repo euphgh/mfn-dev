@@ -11,7 +11,7 @@ PortDir: present the direct of wire or bundle
 
 from enum import Enum
 import logging
-from typing import Dict, TypeVar
+from typing import Dict, Set, TypeVar
 from dataclasses import dataclass
 
 class ErrorRaisingHandler(logging.Handler):
@@ -65,12 +65,12 @@ class HierInstPath:
     please use DesignManager.add/sub to process two HierInstPath.
     """
 
-    # def __init__(self, module: str, instances: "str|tuple[str, ...]" = ()) -> None:
     module: str
     instances: tuple[str, ...]
-    # if isinstance(instances, str):
-    # else:
-    #     self.instances = instances
+
+    @staticmethod
+    def fromStr(moduleName: str, path: str) -> "HierInstPath":
+        return HierInstPath(moduleName, tuple(path.split(".")))
 
     def join(self, split: str) -> str:
         return split.join((self.module,) + self.instances)
@@ -79,8 +79,22 @@ class HierInstPath:
         assert self.instances.__len__() > 0
         return HierInstPath(self.module, self.instances[:-1])
 
+    def leaf(self) -> str:
+        return self.instances[-1]
+
     def addInst(self, that: str):
         return HierInstPath(self.module, self.instances + (that,))
+
+    def common(self, that: "HierInstPath"):
+        if self.module != that.module:
+            return HierInstPath.empty()
+        thisInstance = self.instances
+        thatInstance = self.instances
+        commonInstances = list[str]()
+        for idx in range(min(thisInstance.__len__(), thatInstance.__len__())):
+            if thisInstance[idx] == thatInstance[idx]:
+                commonInstances.append(thisInstance[idx])
+        return HierInstPath(self.module, tuple(commonInstances))
 
     @staticmethod
     def empty() -> "HierInstPath":
@@ -99,17 +113,17 @@ class PortDir(Enum):
 
     @staticmethod
     def fromStr(dir: str) -> "PortDir":
-        if dir == "receive":
+        """
+        Parser direct string to PortDir
+        """
+        inputSet = {"receive", "input", "transmit_in"}
+        outputSet = {"transmit", "output", "transmit_out"}
+        ioSet = {"bidirect", "inout"}
+        if dir in inputSet:
             return PortDir.INPUT
-        if dir == "transmit":
+        if dir in outputSet:
             return PortDir.OUTPUT
-        if dir == "output":
-            return PortDir.OUTPUT
-        if dir == "input":
-            return PortDir.INPUT
-        if dir == "inout":
-            return PortDir.INOUT
-        if dir == "bidirect":
+        if dir in ioSet:
             return PortDir.INOUT
         assert False, f"Direct str {dir} is not expected"
 
@@ -126,4 +140,10 @@ V = TypeVar("V")  # 泛型值类型
 def dictAdd(d: Dict[K, V], key: K, value: V, error: bool = True):
     assert key not in d, f"dict add duplicate for key {key}"
     d[key] = value
+    return True
+
+
+def setAdd(s: Set[K], key: K, error: bool = True):
+    assert key not in s, f"set add duplicate for key {key}"
+    s.add(key)
     return True
