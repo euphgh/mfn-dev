@@ -32,9 +32,6 @@ class ModuleNode:
         # bundle name to wire name set
         self.bundle2wire = dict[str, set[str]]()
 
-        self.needPortXml = True
-        self.needLocolConnect = True
-
     def isLeaf(self):
         return self.next.__len__() == 0
 
@@ -84,8 +81,6 @@ class ModuleNode:
         return (i2j, j2i)
 
     def loadPortXml(self, portXml: PortXmlParser):
-        assert self.needPortXml
-        self.needPortXml = False
         for bundleName, bundleConnec in portXml.bundleDict.items():
             wireNameSet = {wire for wire in bundleConnec.wires.keys()}
             dictAdd(self.bundle2wire, bundleName, wireNameSet)
@@ -126,8 +121,6 @@ class ModuleNode:
                     dictAdd(innerPort.outer, backward, selfPort)
 
     def loadLocalConnec(self, localConnect: PortXmlParser):
-        assert self.needLocolConnect
-        self.needLocolConnect = False
         for bundleName, bundleConnec in localConnect.bundleDict.items():
             wireNameSet = {wire for wire in bundleConnec.wires.keys()}
             dictAdd(self.bundle2wire, bundleName, wireNameSet)
