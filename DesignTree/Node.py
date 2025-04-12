@@ -1,4 +1,4 @@
-from DesignTree.Utils import HierInstPath, WireRange, dictAdd
+from DesignTree.Utils import HierInstPath, WireRange, dictAdd, cl
 from DesignTree.PortXml import PortXmlParser, WireConnec, EndBlock
 from typing import Optional
 from dataclasses import dataclass, field
@@ -130,7 +130,17 @@ class ModuleNode:
                 portNodeList = list[tuple[str, PortWireNode]]()
                 for endBlock in wireConnec.endBlocks:
                     # new inner port node
-                    subModuleNode = self.next[endBlock.instName]
+                    subModuleNode = self.next.get(endBlock.instName)
+                    # In normal status, module nodes are created when load info yaml
+                    # if not found, create a new leaf block
+                    if subModuleNode is None:
+                        subModuleNode = ModuleNode(endBlock.moduleName)
+                        self.next[endBlock.instName] = subModuleNode
+                        moduleLink = ModuleLink(self.name, endBlock.instName)
+                        subModuleNode.prev[moduleLink] = self
+                        cl.warning(
+                            f"Not found module {endBlock.moduleName} in info.yaml"
+                        )
                     portNode = PortWireNode(endBlock, wireConnec.range, subModuleNode)
                     portNode = subModuleNode.__getOrInsertPortNode(
                         endBlock, wireConnec.range
@@ -205,7 +215,7 @@ class PortWireNode:
         self.dir = endBlock.wireDir
         self.name = endBlock.portWireName
         self.range = wireRange
-        self.module: Optional[ModuleNode] = moduleNode
+        self.module: ModuleNode | None = moduleNode
         # sub instance name + port name -> port node
         self.inner = dict[WireLink, PortWireNode]()
         # parent instance name + port name -> port node

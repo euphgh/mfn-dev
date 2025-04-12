@@ -1,6 +1,5 @@
 import sys
-from DesignTree import *
-from typing import Optional
+from DesignTree import HierInstPath, LogicalTopoGraph, PortWireNode
 import re
 
 
@@ -22,7 +21,7 @@ class InputParser:
     def getBundle(self) -> str:
         return self.bundle
 
-    def nextItem(self) -> Optional[tuple[str, str, str]]:
+    def nextItem(self) -> tuple[str, str, str] | None:
         if self.items.__len__() == 0:
             return None
         item = self.items[0]

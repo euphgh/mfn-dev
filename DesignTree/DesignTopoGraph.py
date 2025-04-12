@@ -1,5 +1,4 @@
 from DesignTree.Utils import HierInstPath, dictAdd, cl
-from typing import Optional
 from DesignTree.PortXml import PortXmlReader
 from DesignTree.Node import ModuleNode, ModuleLink
 from dataclasses import dataclass
@@ -66,7 +65,7 @@ class DesignTopoGraph:
         success = set[str]()
         for top in modules:
             topNode = self.nodes.get(top)
-            if topNode == None:
+            if topNode is None:
                 continue
             success.add(top)
             queue = list[ModuleNode]()
@@ -99,28 +98,28 @@ class DesignTopoGraph:
         leafNodes = filter(lambda x: x.isLeaf(), self.nodes.values())
         return set(map(lambda x: x.name, leafNodes))
 
-    def moduleName(self, instPath: HierInstPath) -> Optional[str]:
+    def moduleName(self, instPath: HierInstPath) -> str | None:
         if instPath.instances.__len__() == 0:
             assert instPath.module in self.nodes
             return instPath.module
 
         node = self.nodes[instPath.module]
         for instanceName in instPath.instances:
-            if node == None:
+            if node is None:
                 break
             node = node.next.get(instanceName)
         if node is None:
             return None
         return node.name
 
-    def moduleNode(self, instPath: HierInstPath) -> Optional[ModuleNode]:
+    def moduleNode(self, instPath: HierInstPath) -> ModuleNode | None:
         if instPath.instances.__len__() == 0:
             assert instPath.module in self.nodes
             return self.nodes[instPath.module]
 
         node = self.nodes[instPath.module]
         for instanceName in instPath.instances:
-            if node == None:
+            if node is None:
                 break
             node = node.next.get(instanceName)
         if node is None:
@@ -167,7 +166,7 @@ class DesignTopoGraph:
 
     def instPathAdd(
         self, left: HierInstPath, right: HierInstPath
-    ) -> Optional[HierInstPath]:
+    ) -> HierInstPath | None:
         if self.moduleName(left) == right.module:
             return HierInstPath(left.module, left.instances + right.instances)
         else:
@@ -175,7 +174,7 @@ class DesignTopoGraph:
 
     def instPathSub(
         self, left: HierInstPath, right: HierInstPath
-    ) -> Optional[HierInstPath]:
+    ) -> HierInstPath | None:
         if left.module != right.module:
             return None
         if left.instances.__len__() <= right.instances.__len__():

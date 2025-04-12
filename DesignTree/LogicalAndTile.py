@@ -1,6 +1,7 @@
 from DesignTree.DesignTopoGraph import DesignTopoGraph, InstParentPath, ModuleNode
 from DesignTree.Utils import *
 import yaml
+from pdb import set_trace
 
 
 class LogicalTopoGraph(DesignTopoGraph):
@@ -32,7 +33,7 @@ class TileTopoGraph(DesignTopoGraph):
         super().__init__()
         containerNameList = list[str]()
         instParentPaths = list[InstParentPath]()
-        containerSubInstList = list[str]()
+        # containerSubInstList = list[str]()
         with open(yamlFile, "r", encoding="utf-8") as file:
             data = yaml.safe_load(file)
             assert isinstance(data["ALL_AUTOGEN_BLOCK_CLASS_NAMES"], list)
@@ -43,15 +44,15 @@ class TileTopoGraph(DesignTopoGraph):
             strList: list[str] = data["ALL_AUTOGEN_BLOCK_INSTANCE_PARENT_PATH"]
             instParentPaths = [InstParentPath.fromStr(x) for x in strList]
 
-            assert isinstance(data["TILE_CLASS_SUBBLOCK_NAMES"], list)
-            assert isinstance(data["CTNR_CLASS_SUBBLOCK_NAMES"], list)
-            containerSubInstList.append(data["TILE_CLASS_SUBBLOCK_NAMES"])
-            containerSubInstList.append(data["CTNR_CLASS_SUBBLOCK_NAMES"])
+            # assert isinstance(data["TILE_CLASS_SUBBLOCK_NAMES"], list)
+            # assert isinstance(data["CTNR_CLASS_SUBBLOCK_NAMES"], list)
+            # containerSubInstList.extend(data["TILE_CLASS_SUBBLOCK_NAMES"])
+            # containerSubInstList.extend(data["CTNR_CLASS_SUBBLOCK_NAMES"])
 
         self.createModuleHier(containerNameList, instParentPaths)
-        for subInstStr in containerSubInstList:
-            container, subInst = subInstStr.strip().split(".")
-            dictAdd(self.nodes[container].next, subInst, ModuleNode("__unknow__"))
+        # for subInstStr in containerSubInstList:
+        #     container, subInst = subInstStr.strip().split(".")
+        #     dictAdd(self.nodes[container].next, subInst, ModuleNode("__unknow__"))
 
 
 def commonSplit(lhs: HierInstPath, rhs: HierInstPath):
@@ -134,7 +135,7 @@ class LogicalTileMap:
                 if line == "":
                     break
                 lgclPathStr, _, tilePathStr = line.split(" ")
-                if lgclPathStr == tilePathStr:
+                if (prefix not in lgclPathStr) or (prefix not in tilePathStr):
                     continue
                 lgclPath = LogicalTileMap.pathStr2HierInstPath(lgclPathStr, prefix)
                 tilePath = LogicalTileMap.pathStr2HierInstPath(tilePathStr, prefix)
@@ -150,18 +151,19 @@ class LogicalTileMap:
             lgclModuleName = self.lgclView.moduleName(mapLine.lgclAbsInstPath())
             assert lgclModuleName is not None
             tileModuleName = self.tileView.moduleName(mapLine.tileAbsInstPath())
-            if tileModuleName == None:  # tileModule is a leaf block
-                tileAbsInstPath = mapLine.tileAbsInstPath()
-                pModuleNodeInTile = self.tileView.moduleNode(tileAbsInstPath.parent())
-                assert pModuleNodeInTile is not None
-                leafModuleNodeInTile = pModuleNodeInTile.next[tileAbsInstPath.leaf()]
-                assert leafModuleNodeInTile.name == "__unknown__"
-                assert leafModuleNodeInTile.next.__len__() == 0
-                leafModuleNodeInTile.name = lgclModuleName
-            else:
-                key = ModulesKey(lgclModuleName, tileModuleName)
-                mapLineSet = self.moduleMap.setdefault(key, set[MapLine]())
-                mapLineSet.add(mapLine)
+            assert tileModuleName is not None
+            # if tileModuleName == None:  # tileModule is a leaf block
+            #     tileAbsInstPath = mapLine.tileAbsInstPath()
+            #     pModuleNodeInTile = self.tileView.moduleNode(tileAbsInstPath.parent())
+            #     assert pModuleNodeInTile is not None
+            #     leafModuleNodeInTile = pModuleNodeInTile.next[tileAbsInstPath.leaf()]
+            #     assert leafModuleNodeInTile.name == "__unknown__"
+            #     assert leafModuleNodeInTile.next.__len__() == 0
+            #     leafModuleNodeInTile.name = lgclModuleName
+            # else:
+            key = ModulesKey(lgclModuleName, tileModuleName)
+            mapLineSet = self.moduleMap.setdefault(key, set[MapLine]())
+            mapLineSet.add(mapLine)
 
     def __checkMapLine(self):
         lgclModuleSet = self.lgclView.containers()

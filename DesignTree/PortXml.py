@@ -19,10 +19,10 @@ port_signal_name: 端口名
 """
 
 from DesignTree.Utils import PortDir, cl, WireRange, dictAdd
-from xml.etree.ElementTree import ElementTree as XmlDoc
+from xml.etree.ElementTree import ElementTree
 from xml.etree.ElementTree import Element
 from xml.etree import ElementTree as ET
-from typing import Optional, TypeAlias
+from typing import TypeAlias
 import os
 
 
@@ -43,7 +43,7 @@ class EndBlock:
         self.portWireName = str()
         self.wireDir: PortDir = PortDir.EMPTY  # port_signal_dir
         self.bundleDir: PortDir = PortDir.EMPTY  # port_dir
-        self.wireLink: Optional[WireConnec] = None  # back link
+        self.wireLink: WireConnec | None = None  # back link
 
     def __str__(self) -> str:
         return f"{self.instName}:{self.moduleName}:{self.portWireName}({self.wireDir}):{self.portBundleName}({self.bundleDir})"
@@ -64,7 +64,7 @@ class WireConnec:
         self.name: str = name
         self.range = WireRange(msb, lsb)
         self.endBlocks = list[EndBlock]()
-        self.bundleLink: Optional[BundleConnec] = None  # back link
+        self.bundleLink: BundleConnec | None = None  # back link
 
     def endBlockOf(self, moduleName: str):
         for eb in self.endBlocks:
@@ -96,8 +96,9 @@ class PortXmlParser:
     bundle name and wire name is unique
     """
 
-    def __init__(self, portXml: XmlDoc, moduleName: str) -> None:
+    def __init__(self, portXml: ElementTree[Element[str]], moduleName: str) -> None:
         root = portXml.getroot()
+        assert root is not None
         assert root.attrib["container"] == moduleName
         self.bundleDict = dict[str, BundleConnec]()
         self.wireDict = dict[str, WireConnec]()
@@ -172,7 +173,7 @@ class PortXmlReader:
             "local_connect": moduleXmlMap(),
         }
 
-    def __fromModuleDict(self, moduleName: str, suffix: str) -> Optional[PortXmlParser]:
+    def __fromModuleDict(self, moduleName: str, suffix: str) -> PortXmlParser | None:
         d = self.xmls[suffix]
         # module name is valid
         if moduleName in self.containerSet:
@@ -181,13 +182,13 @@ class PortXmlReader:
                 return d[moduleName]
             # load xml when needed
             else:
-                tree: XmlDoc = ET.parse(f"{self.dirName}/{moduleName}_{suffix}.xml")
+                tree = ET.parse(f"{self.dirName}/{moduleName}_{suffix}.xml")
                 parser = PortXmlParser(tree, moduleName)
                 dictAdd(d, moduleName, parser)
                 return parser
         else:
             return None
 
-    def load(self, moduleName: str, suffix: str) -> Optional[PortXmlParser]:
+    def load(self, moduleName: str, suffix: str) -> PortXmlParser | None:
         assert suffix == "port" or suffix == "local_connect"
         return self.__fromModuleDict(moduleName, suffix)

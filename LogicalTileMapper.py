@@ -1,4 +1,4 @@
-from DesignTree import *
+from DesignTree import LogicalTopoGraph, TileTopoGraph, LogicalTileMap
 import sys
 
 
