@@ -1,6 +1,5 @@
 from DesignTree.Utils import HierInstPath, WireRange, dictAdd, cl
 from DesignTree.PortXml import PortXmlParser, WireConnec, EndBlock
-from typing import Optional
 from dataclasses import dataclass, field
 
 
@@ -133,6 +132,7 @@ class ModuleNode:
                     subModuleNode = self.next.get(endBlock.instName)
                     # In normal status, module nodes are created when load info yaml
                     # if not found, create a new leaf block
+                    # TODO: add to self.nodes
                     if subModuleNode is None:
                         subModuleNode = ModuleNode(endBlock.moduleName)
                         self.next[endBlock.instName] = subModuleNode

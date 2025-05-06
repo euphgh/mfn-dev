@@ -31,9 +31,9 @@ class DesignTopoGraph:
         self.roots = set[str]()
 
     def createModuleHier(
-        self, containerNameList: list[str], instParentPaths: list[InstParentPath]
+        self, blockClassNameList: list[str], instParentPaths: list[InstParentPath]
     ):
-        for container in containerNameList:
+        for container in blockClassNameList:
             dictAdd(self.nodes, container, ModuleNode(container))
             self.roots.add(container)
 
@@ -60,6 +60,7 @@ class DesignTopoGraph:
     def tops(self, modules: set[str]):
         """
         return a set of successfully selected top module
+        还需要加入修建分支的功能，否则会导致多余的连接
         """
         moduleSet = dict[str, ModuleNode]()
         success = set[str]()
@@ -75,6 +76,13 @@ class DesignTopoGraph:
                 moduleSet[currNode.name] = currNode
                 for nextModule in currNode.next.values():
                     queue.append(self.nodes[nextModule.name])
+
+        removedNodes = self.nodes.keys() - moduleSet.keys()
+        for removed in removedNodes:
+            for subInstance, subNode in self.nodes[removed].next.items():
+                subNode.prev.pop(ModuleLink(removed, subInstance))
+            for link, pNode in self.nodes[removed].prev.items():
+                pNode.next.pop(link.instance)
 
         self.roots = success
         self.nodes = moduleSet

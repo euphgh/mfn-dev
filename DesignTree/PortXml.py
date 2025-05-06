@@ -18,8 +18,7 @@ pears:  模块内相互连接, (父模块名称 + 实例化名称) -> 父模块�
 port_signal_name: 端口名
 """
 
-from DesignTree.Utils import PortDir, cl, WireRange, dictAdd
-from xml.etree.ElementTree import ElementTree
+from .Utils import PortDir, cl, WireRange, dictAdd
 from xml.etree.ElementTree import Element
 from xml.etree import ElementTree as ET
 from typing import TypeAlias
@@ -96,9 +95,7 @@ class PortXmlParser:
     bundle name and wire name is unique
     """
 
-    def __init__(self, portXml: ElementTree[Element[str]], moduleName: str) -> None:
-        root = portXml.getroot()
-        assert root is not None
+    def __init__(self, root: Element, moduleName: str) -> None:
         assert root.attrib["container"] == moduleName
         self.bundleDict = dict[str, BundleConnec]()
         self.wireDict = dict[str, WireConnec]()
@@ -183,7 +180,7 @@ class PortXmlReader:
             # load xml when needed
             else:
                 tree = ET.parse(f"{self.dirName}/{moduleName}_{suffix}.xml")
-                parser = PortXmlParser(tree, moduleName)
+                parser = PortXmlParser(tree.getroot(), moduleName)
                 dictAdd(d, moduleName, parser)
                 return parser
         else:

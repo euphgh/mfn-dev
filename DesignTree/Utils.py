@@ -147,3 +147,11 @@ def setAdd(s: Set[K], key: K, error: bool = True):
     assert key not in s, f"set add duplicate for key {key}"
     s.add(key)
     return True
+
+def compareSet(lhs: Set[K], rhs: Set[K]) -> None:
+    if lhs != rhs:
+        print("l: ", lhs)
+        print("r: ", rhs)
+        print("l - r: ", lhs - rhs)
+        print("r - l:", rhs - lhs)
+        assert False

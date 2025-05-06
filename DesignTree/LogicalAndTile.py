@@ -1,5 +1,7 @@
-from DesignTree.DesignTopoGraph import DesignTopoGraph, InstParentPath, ModuleNode
-from DesignTree.Utils import *
+from .DesignTopoGraph import DesignTopoGraph
+from .DesignTopoGraph import InstParentPath, ModuleNode, ModuleLink
+from .Utils import HierInstPath, compareSet, cl
+from dataclasses import dataclass
 import yaml
 from pdb import set_trace
 
@@ -31,29 +33,28 @@ class TileTopoGraph(DesignTopoGraph):
 
     def __init__(self, yamlFile: str) -> None:
         super().__init__()
-        containerNameList = list[str]()
+        blockClassNameList = list[str]()
         instParentPaths = list[InstParentPath]()
-        # containerSubInstList = list[str]()
         with open(yamlFile, "r", encoding="utf-8") as file:
             data = yaml.safe_load(file)
             assert isinstance(data["ALL_AUTOGEN_BLOCK_CLASS_NAMES"], list)
-            containerNameList: list[str] = data["ALL_AUTOGEN_BLOCK_CLASS_NAMES"]
-            containerNameList = [x.strip() for x in containerNameList]
+            blockClassNameList: list[str] = data["ALL_AUTOGEN_BLOCK_CLASS_NAMES"]
+            blockClassNameList = [x.strip() for x in blockClassNameList]
             # NOTE: tile view instParentPaths的最底层是tile, 不是leaf block
             assert isinstance(data["ALL_AUTOGEN_BLOCK_INSTANCE_PARENT_PATH"], list)
             strList: list[str] = data["ALL_AUTOGEN_BLOCK_INSTANCE_PARENT_PATH"]
             instParentPaths = [InstParentPath.fromStr(x) for x in strList]
 
-            # assert isinstance(data["TILE_CLASS_SUBBLOCK_NAMES"], list)
-            # assert isinstance(data["CTNR_CLASS_SUBBLOCK_NAMES"], list)
-            # containerSubInstList.extend(data["TILE_CLASS_SUBBLOCK_NAMES"])
-            # containerSubInstList.extend(data["CTNR_CLASS_SUBBLOCK_NAMES"])
+            assert isinstance(data["TILE_CLASS_SUBBLOCK_NAMES"], list)
+            assert isinstance(data["CTNR_CLASS_SUBBLOCK_NAMES"], list)
 
-        self.createModuleHier(containerNameList, instParentPaths)
-        # for subInstStr in containerSubInstList:
-        #     container, subInst = subInstStr.strip().split(".")
-        #     dictAdd(self.nodes[container].next, subInst, ModuleNode("__unknow__"))
+        self.createModuleHier(blockClassNameList, instParentPaths)
 
+        # container class sub block info is included in all auto gen block instance parent path
+        for subInstStr in data["CTNR_CLASS_SUBBLOCK_NAMES"]:
+            container, subInst = subInstStr.strip().split(".")
+            assert container in self.nodes
+            assert subInst in self.nodes[container].next
 
 def commonSplit(lhs: HierInstPath, rhs: HierInstPath):
     """
@@ -78,7 +79,7 @@ def commonSplit(lhs: HierInstPath, rhs: HierInstPath):
     common = HierInstPath(lhs.module, tuple(commonInstances))
     lhsSub = HierInstPath.empty()
     rhsSub = HierInstPath.empty()
-    raise NotImplemented
+    raise NotImplementedError
     return (
         common,
         lhsSub,
@@ -134,7 +135,7 @@ class LogicalTileMap:
                 line = file.readline()
                 if line == "":
                     break
-                lgclPathStr, _, tilePathStr = line.split(" ")
+                lgclPathStr, _, tilePathStr = line.strip().split(" ")
                 if (prefix not in lgclPathStr) or (prefix not in tilePathStr):
                     continue
                 lgclPath = LogicalTileMap.pathStr2HierInstPath(lgclPathStr, prefix)
@@ -149,31 +150,44 @@ class LogicalTileMap:
     def __processMapLine(self, mapLines: list[MapLine]):
         for mapLine in mapLines:
             lgclModuleName = self.lgclView.moduleName(mapLine.lgclAbsInstPath())
-            assert lgclModuleName is not None
+            if lgclModuleName is None:
+                cl.warning(f"logical inst path {mapLine.lgcl} in map line is not exist")
+                continue
             tileModuleName = self.tileView.moduleName(mapLine.tileAbsInstPath())
-            assert tileModuleName is not None
-            # if tileModuleName == None:  # tileModule is a leaf block
-            #     tileAbsInstPath = mapLine.tileAbsInstPath()
-            #     pModuleNodeInTile = self.tileView.moduleNode(tileAbsInstPath.parent())
-            #     assert pModuleNodeInTile is not None
-            #     leafModuleNodeInTile = pModuleNodeInTile.next[tileAbsInstPath.leaf()]
-            #     assert leafModuleNodeInTile.name == "__unknown__"
-            #     assert leafModuleNodeInTile.next.__len__() == 0
-            #     leafModuleNodeInTile.name = lgclModuleName
-            # else:
-            key = ModulesKey(lgclModuleName, tileModuleName)
-            mapLineSet = self.moduleMap.setdefault(key, set[MapLine]())
-            mapLineSet.add(mapLine)
+            if tileModuleName is None:  # tileModule is a leaf block
+                tileAbsInstPath = mapLine.tileAbsInstPath()
+                pModuleNodeInTile = self.tileView.moduleNode(tileAbsInstPath.parent())
+                leafInstName = tileAbsInstPath.leaf()
+                assert pModuleNodeInTile is not None
+                # create new leaf module node
+                leafModuleNodeInTile = self.tileView.nodes.setdefault(
+                    lgclModuleName, ModuleNode(lgclModuleName)
+                )
+                # link module
+                pModuleNodeInTile.next[leafInstName] = leafModuleNodeInTile
+                moduleLink = ModuleLink(pModuleNodeInTile.name, leafInstName)
+                leafModuleNodeInTile.prev[moduleLink] = pModuleNodeInTile
+                # assign tile module name for later map
+                tileModuleName = lgclModuleName
+            if tileModuleName == lgclModuleName:
+                key = ModulesKey(lgclModuleName, tileModuleName)
+                mapLineSet = self.moduleMap.setdefault(key, set[MapLine]())
+                mapLineSet.add(mapLine)
+            else:
+                cl.warning(f"skip mapLine {mapLine} for module name not same")
 
     def __checkMapLine(self):
-        lgclModuleSet = self.lgclView.containers()
-        tileModuleSet = self.tileView.containers()
-        assert lgclModuleSet == {x.lgcl for x in self.moduleMap.keys()}
-        assert tileModuleSet == {x.tile for x in self.moduleMap.keys()}
+        lgclModuleSet = self.lgclView.modules()
+        tileModuleSet = self.tileView.modules()
+        lgclModuleInMap = {x.lgcl for x in self.moduleMap.keys()}
+        tileModuleInMap = {x.tile for x in self.moduleMap.keys()}
+        assert lgclModuleInMap.issubset(lgclModuleSet)
+        assert tileModuleInMap.issubset(tileModuleSet)
+
         for moduleKey, mapLines in self.moduleMap.items():
             lgclOuterSet = set(self.lgclView.outer(HierInstPath(moduleKey.lgcl, ())))
             lgclMapLineSet = {x.lgcl for x in mapLines}
-            assert lgclOuterSet == lgclMapLineSet
+            compareSet(lgclOuterSet, lgclMapLineSet)
             tileOuterSet = set(self.tileView.outer(HierInstPath(moduleKey.tile, ())))
             tileMapLineSet = {x.tile for x in mapLines}
-            assert tileOuterSet == tileMapLineSet
+            compareSet(tileOuterSet, tileMapLineSet)
