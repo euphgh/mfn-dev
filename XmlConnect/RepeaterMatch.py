@@ -2,6 +2,7 @@ import json
 import sys
 from typing import Any
 from dataclasses import dataclass
+from DesignTree import HierInstPath, LogicalTopoGraph
 
 
 @dataclass(frozen=True)
@@ -24,6 +25,12 @@ class AdHocConnection:
     @staticmethod
     def empty() -> "AdHocConnection":
         return AdHocConnection("", "", 0, 0)
+
+
+repeater_info_json = sys.argv[1]
+logical_info = sys.argv[2]
+hierTree: LogicalTopoGraph = LogicalTopoGraph(logical_info)
+success = hierTree.tops({"mpu"})
 
 
 class FgcgRepeater:
@@ -57,59 +64,82 @@ def rep_suffix(index: int, n: int) -> str:
 
 def connixRepInstPath(
     fgcg: FgcgRepeater,
-    logical_port: str,
     adhoc: AdHocConnection,
     cell_idx: int,
     bit_idx: int,
+    logical_port: str = "rep_dat_out",
 ):
     rep_const_path = "NML_REG_TYPE.NMML_MULTI_REG.NML_EACH_REG"
-    return f"$impl/{fgcg.container}/{fgcg.instance}/{rep_const_path}{cell_idx}.u_fgcg/rep_data_out[{bit_idx}]"
+    signal_name = (
+        f"{fgcg.instance}/{rep_const_path}[{cell_idx}].u_fgcg/{logical_port}_reg"
+    )
+    if (adhoc.lsb == adhoc.msb) and (adhoc.lsb == 0):
+        return signal_name
+    else:
+        return f"{signal_name}[{bit_idx}]"
 
 
 def connecRepInstPath(
     fgcg: FgcgRepeater,
-    logical_port: str,
     adhoc: AdHocConnection,
     cell_idx: int,
     bit_idx: int,
+    logical_port: str,
 ):
-    instPath = f"{fgcg.container}/{fgcg.container}_rep_{fgcg.clock}"
+    instPath = f"{fgcg.container}_rep_{fgcg.clock}"
     suffix = ""
-    if cell_idx == 0:
-        suffix = ""
-    elif (cell_idx < fgcg.cell_num) and (cell_idx):
-        suffix = f"rep{cell_idx - 1}"
+    if cell_idx < fgcg.cell_num - 1:
+        suffix = f"rep{cell_idx}"
     else:
         suffix = "rep"
-    return f"$ref/{instPath}/{fgcg.interconnection}_{logical_port}{suffix}[{bit_idx - adhoc.lsb}]"
+    signal_name = f"{instPath}/{fgcg.interconnection}_{logical_port}_{suffix}_reg"
+    if (adhoc.lsb == adhoc.msb) and (adhoc.lsb == 0):
+        return signal_name
+    else:
+        return f"{signal_name}[{bit_idx - adhoc.lsb}]"
 
 
 def matchFgcg(fgcg: FgcgRepeater):
-    matchTcl = list[str]()
+    res = list[tuple[str, str]]()
     for cell_idx in range(fgcg.cell_num):
         # repeater data field
         for logical_port, adhoc in fgcg.data_in.items():
             for bit_idx in range(adhoc.lsb, adhoc.msb):
                 connec_path = connecRepInstPath(
-                    fgcg, logical_port, adhoc, cell_idx, bit_idx
+                    fgcg, adhoc, cell_idx, bit_idx, logical_port
                 )
                 connix_path = connixRepInstPath(
-                    fgcg, logical_port, adhoc, cell_idx, bit_idx
+                    fgcg, adhoc, cell_idx, bit_idx, "rep_dat_out"
                 )
-                matchTcl.append(f"set_user_match {connec_path} {connix_path}")
+                res.append((connec_path, connix_path))
         # clock enable
-        # connecEnable = connecRepInstPath(
-        #     fgcg, "fgcg_clk_en", AdHocConnection.empty(), cell_idx, 0
-        # )
-        # connixEnable = connixRepInstPath(fgcg, logical_port, adhoc, cell_idx, 0)
-        # matchTcl.append(f"set_user_match {connecEnable} {connixEnable}")
-    return "\n".join(matchTcl)
+        connec_enable = connecRepInstPath(
+            fgcg, AdHocConnection.empty(), cell_idx, 0, "fgcg_clk_en"
+        )
+        connix_enable = connixRepInstPath(
+            fgcg, AdHocConnection.empty(), cell_idx, 0, "fgcg_en"
+        )
+        res.append((connec_enable, connix_enable))
+    return res
+
+
+ref_work = "r:/FMWORK_REF_MPU"
+imp_work = "i:/FMWORK_IMPL_MPU"
+
+
+def printMatch(matches: list[tuple[str, str]], container: str):
+    for prefix in hierTree.outer(HierInstPath(container, ())):
+        for match in matches:
+            ref_prefix = f"{ref_work}/{prefix.join('/')}"
+            impl_prefix = f"{imp_work}/{prefix.join('/')}"
+            # print(f"set_user_match {ref_prefix}/{match[0]} {impl_prefix}/{match[1]}")
+            print(f"{impl_prefix}/{match[1]}")
 
 
 if __name__ == "__main__":
-    with open(sys.argv[1], "r", encoding="utf-8") as f:
+    with open(repeater_info_json, "r", encoding="utf-8") as f:
         data: dict[str, list[dict[str, Any]]] = json.load(f)
     normal_repeaters = data["normal repeater"]
     fgcg_repeaters = [FgcgRepeater(x) for x in data["fgcg repeater"]]
     for fgcg in fgcg_repeaters:
-        print(matchFgcg(fgcg))
+        printMatch(matchFgcg(fgcg), fgcg.container)
