@@ -45,7 +45,14 @@ success = hierTree.tops({"mpu"})
 def jsonName(json: dict[str, Any]):
     container = json["container"]
     instance = json["instance"]
-    return f"[{instance}, {container}]"
+    totalWidth: int = 0
+    if json["data in"].__len__() != 0:
+        for data_in in json["data in"]:
+            totalWidth = totalWidth + (data_in["portLeft"] - data_in["portRight"] + 1)
+    if json["data out"].__len__() != 0:
+        for data_out in json["data in"]:
+            totalWidth = totalWidth + (data_out["portLeft"] - data_out["portRight"] + 1)
+    return f"[{instance}, {container}, {totalWidth * json['pd']}]"
 class FgcgRepeater:
     @staticmethod
     def fromJson(json: dict[str, Any]) -> "FgcgRepeater|None":
