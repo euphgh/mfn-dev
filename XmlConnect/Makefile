@@ -15,6 +15,6 @@ pdb:
 	python3.10 -m ipdb -c continue src/$(MAIN) $(ARGS)
 
 rep-match:
-	python3.10 RepeaterMatch.py ../../resources/user_match/info.json ../../resources/xml/logical_info.yml
+	python3.10 RepeaterMatch.py ../../resources/user_match ../../resources/xml/logical_info.yml
 rep-match-pdb:
-	python3.10 -m ipdb -c continue RepeaterMatch.py ../../resources/user_match/info.json ../../resources/xml/logical_info.yml
+	python3.10 -m ipdb -c continue RepeaterMatch.py ../../resources/user_match ../../resources/xml/logical_info.yml

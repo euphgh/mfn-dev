@@ -1,5 +1,7 @@
 import json
 import sys
+import os
+import glob
 from typing import Any
 from dataclasses import dataclass
 from DesignTree import HierInstPath, LogicalTopoGraph
@@ -27,7 +29,7 @@ class AdHocConnection:
         return AdHocConnection("", "", 0, 0)
 
 
-repeater_info_json = sys.argv[1]
+repeater_info_dir = sys.argv[1]
 logical_info = sys.argv[2]
 hierTree: LogicalTopoGraph = LogicalTopoGraph(logical_info)
 success = hierTree.tops({"mpu"})
@@ -132,14 +134,15 @@ def printMatch(matches: list[tuple[str, str]], container: str):
         for match in matches:
             ref_prefix = f"{ref_work}/{prefix.join('/')}"
             impl_prefix = f"{imp_work}/{prefix.join('/')}"
-            # print(f"set_user_match {ref_prefix}/{match[0]} {impl_prefix}/{match[1]}")
-            print(f"{impl_prefix}/{match[1]}")
+            print(f"set_user_match {ref_prefix}/{match[0]} {impl_prefix}/{match[1]}")
 
 
 if __name__ == "__main__":
-    with open(repeater_info_json, "r", encoding="utf-8") as f:
-        data: dict[str, list[dict[str, Any]]] = json.load(f)
-    normal_repeaters = data["normal repeater"]
-    fgcg_repeaters = [FgcgRepeater(x) for x in data["fgcg repeater"]]
-    for fgcg in fgcg_repeaters:
-        printMatch(matchFgcg(fgcg), fgcg.container)
+    pattern = os.path.join(repeater_info_dir, "*_repeater.json")
+    json_files = glob.glob(pattern)
+    for json_file in json_files:
+        with open(json_file, "r", encoding="utf-8") as f:
+            data: dict[str, list[dict[str, Any]]] = json.load(f)
+        fgcg_repeaters = [FgcgRepeater(x) for x in data["fgcg repeater"]]
+        for fgcg in fgcg_repeaters:
+            printMatch(matchFgcg(fgcg), fgcg.container)
