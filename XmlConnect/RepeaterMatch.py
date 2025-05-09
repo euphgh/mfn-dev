@@ -5,6 +5,7 @@ import glob
 from typing import Any
 from dataclasses import dataclass
 from DesignTree import HierInstPath, LogicalTopoGraph
+from io import TextIOWrapper
 
 
 @dataclass(frozen=True)
@@ -16,13 +17,19 @@ class AdHocConnection:
 
     @staticmethod
     def fromJson(json: dict[str, Any]) -> "AdHocConnection":
-        assert (json["port left"] > 0) and (json["port right"] == 0)
-        assert (json["port left"] - json["port right"]) == (
-            json["rep left"] - json["rep right"]
-        )
-        return AdHocConnection(
-            json["adhoc"], json["logical port"], json["rep left"], json["rep right"]
-        )
+        portLeft = json["portLeft"]
+        portRight = json["portRight"]
+        repLeft = json["repLeft"]
+        repRight = json["repRight"]
+        if portLeft < portRight:
+            raise Exception(f"portLeft({portLeft}) < portRight({portRight})")
+        if portRight != 0:
+            raise Exception(f"portRight({portRight}) is not 0")
+        if (portLeft - portRight) != (repLeft - repRight):
+            raise Exception(
+                f"rep width({repLeft - repRight}) not equal to port width({portLeft - portRight})"
+            )
+        return AdHocConnection(json["name"], json["logicalPort"], repLeft, repRight)
 
     @staticmethod
     def empty() -> "AdHocConnection":
@@ -35,25 +42,50 @@ hierTree: LogicalTopoGraph = LogicalTopoGraph(logical_info)
 success = hierTree.tops({"mpu"})
 
 
+def jsonName(json: dict[str, Any]):
+    container = json["container"]
+    instance = json["instance"]
+    return f"[{instance}, {container}]"
 class FgcgRepeater:
-    def __init__(self, json: dict[str, Any]) -> None:
-        self.container: str = json["container"]
-        self.instance: str = json["instance"]
-        self.clock: str = json["clk"]
-        self.cell_num: int = json["pd"]
-        self.interconnection: str = json["interconnection"]
-        self.fgcg_in: str = json["fgcg in"]
-        self.fgcg_out: str = json["fgcg out"]
-        self.data_in: dict[str, AdHocConnection] = {}
-        for data_in in json["data in"]:
-            adhoc = AdHocConnection.fromJson(data_in)
-            self.data_in[adhoc.logical_port] = adhoc
-        self.data_out: dict[str, AdHocConnection] = {}
-        for data_out in json["data out"]:
-            adhoc = AdHocConnection.fromJson(data_out)
-            self.data_out[adhoc.logical_port] = adhoc
-        assert self.data_in.keys() == self.data_out.keys()
+    @staticmethod
+    def fromJson(json: dict[str, Any]) -> "FgcgRepeater|None":
+        fgcg = FgcgRepeater()
+        try:
+            fgcg.container = json["container"]
+            fgcg.instance = json["instance"]
+            fgcg.clock = json["clk"]
+            fgcg.cell_num = json["pd"]
+            fgcg.interconnection = json["interconnection"]
+            fgcg.fgcg_in = json["fgcg in"]
+            fgcg.fgcg_out = json["fgcg out"]
+            fgcg.data_in = {}
+            for data_in in json["data in"]:
+                adhoc = AdHocConnection.fromJson(data_in)
+                fgcg.data_in[adhoc.logical_port] = adhoc
+            fgcg.data_out = {}
+            for data_out in json["data out"]:
+                adhoc = AdHocConnection.fromJson(data_out)
+                fgcg.data_out[adhoc.logical_port] = adhoc
+            if fgcg.data_in.keys() != fgcg.data_out.keys():
+                raise Exception("data in keys not equal to data out keys")
+        except KeyError as ke:
+            print(f"Fail to parser FGCG: Not found key {ke} in {jsonName(json)}")
+            return None
+        except Exception as e:
+            print(f"Fail to parser FGCG: {e} in {jsonName(json)}")
+            return None
+        return fgcg
 
+    def __init__(self) -> None:
+        self.container: str
+        self.instance: str
+        self.clock: str
+        self.cell_num: int
+        self.interconnection: str
+        self.fgcg_in: str
+        self.fgcg_out: str
+        self.data_in: dict[str, AdHocConnection]
+        self.data_out: dict[str, AdHocConnection] = {}
 
 def rep_suffix(index: int, n: int) -> str:
     if index == 0:
@@ -129,12 +161,14 @@ ref_work = "r:/FMWORK_REF_MPU"
 imp_work = "i:/FMWORK_IMPL_MPU"
 
 
-def printMatch(matches: list[tuple[str, str]], container: str):
+def printMatch(matches: list[tuple[str, str]], container: str, out_file: TextIOWrapper):
     for prefix in hierTree.outer(HierInstPath(container, ())):
         for match in matches:
             ref_prefix = f"{ref_work}/{prefix.join('/')}"
             impl_prefix = f"{imp_work}/{prefix.join('/')}"
-            print(f"set_user_match {ref_prefix}/{match[0]} {impl_prefix}/{match[1]}")
+            out_file.write(
+                f"set_user_match {ref_prefix}/{match[0]} {impl_prefix}/{match[1]}\n"
+            )
 
 
 if __name__ == "__main__":
@@ -143,6 +177,16 @@ if __name__ == "__main__":
     for json_file in json_files:
         with open(json_file, "r", encoding="utf-8") as f:
             data: dict[str, list[dict[str, Any]]] = json.load(f)
-        fgcg_repeaters = [FgcgRepeater(x) for x in data["fgcg repeater"]]
-        for fgcg in fgcg_repeaters:
-            printMatch(matchFgcg(fgcg), fgcg.container)
+        fgcg_repeaters = list[FgcgRepeater]()
+        json_fgcg_array = data["fgcg repeater"]
+        print(f"Found {json_fgcg_array.__len__()} FGCG in {json_file}")
+        for x in json_fgcg_array:
+            fgcg = FgcgRepeater.fromJson(x)
+            if fgcg is not None:
+                fgcg_repeaters.append(fgcg)
+        print(
+            f"Total: {json_fgcg_array.__len__()}, Valid: {fgcg_repeaters.__len__()} in {json_file}"
+        )
+        with open("output.tcl", "w", encoding="utf-8") as out_file:
+            for fgcg in fgcg_repeaters:
+                printMatch(matchFgcg(fgcg), fgcg.container, out_file)
