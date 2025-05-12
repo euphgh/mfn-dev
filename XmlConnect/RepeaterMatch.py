@@ -35,7 +35,6 @@ class AdHocConnection:
     def empty() -> "AdHocConnection":
         return AdHocConnection("", "", 0, 0)
 
-
 repeater_info_dir = sys.argv[1]
 logical_info = sys.argv[2]
 hierTree: LogicalTopoGraph = LogicalTopoGraph(logical_info)
@@ -114,10 +113,7 @@ def connixRepInstPath(
     signal_name = (
         f"{fgcg.instance}/{rep_const_path}[{cell_idx}].u_fgcg/{logical_port}_reg"
     )
-    if (adhoc.lsb == adhoc.msb) and (adhoc.lsb == 0):
-        return signal_name
-    else:
-        return f"{signal_name}[{bit_idx}]"
+    return f"{signal_name}[{bit_idx}]"
 
 
 def connecRepInstPath(
@@ -134,10 +130,7 @@ def connecRepInstPath(
     else:
         suffix = "rep"
     signal_name = f"{instPath}/{fgcg.interconnection}_{logical_port}_{suffix}_reg"
-    if (adhoc.lsb == adhoc.msb) and (adhoc.lsb == 0):
-        return signal_name
-    else:
-        return f"{signal_name}[{bit_idx - adhoc.lsb}]"
+    return f"{signal_name}[{bit_idx - adhoc.lsb}]"
 
 
 def matchFgcg(fgcg: FgcgRepeater):
@@ -154,13 +147,13 @@ def matchFgcg(fgcg: FgcgRepeater):
                 )
                 res.append((connec_path, connix_path))
         # clock enable
-        connec_enable = connecRepInstPath(
-            fgcg, AdHocConnection.empty(), cell_idx, 0, "fgcg_clk_en"
-        )
-        connix_enable = connixRepInstPath(
-            fgcg, AdHocConnection.empty(), cell_idx, 0, "fgcg_en"
-        )
-        res.append((connec_enable, connix_enable))
+        # connec_enable = connecRepInstPath(
+        #     fgcg, AdHocConnection.empty(), cell_idx, 0, "fgcg_clk_en"
+        # )
+        # connix_enable = connixRepInstPath(
+        #     fgcg, AdHocConnection.empty(), cell_idx, 0, "fgcg_en"
+        # )
+        # res.append((connec_enable, connix_enable))
     return res
 
 
