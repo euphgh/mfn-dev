@@ -50,7 +50,7 @@ def jsonName(json: dict[str, Any]):
         for data_in in json["data in"]:
             totalWidth = totalWidth + (data_in["portLeft"] - data_in["portRight"] + 1)
     if json["data out"].__len__() != 0:
-        for data_out in json["data in"]:
+        for data_out in json["data out"]:
             totalWidth = totalWidth + (data_out["portLeft"] - data_out["portRight"] + 1)
     return f"[{instance}, {container}, {totalWidth * json['pd']}]"
 class FgcgRepeater:
@@ -145,7 +145,7 @@ def matchFgcg(fgcg: FgcgRepeater):
     for cell_idx in range(fgcg.cell_num):
         # repeater data field
         for logical_port, adhoc in fgcg.data_in.items():
-            for bit_idx in range(adhoc.lsb, adhoc.msb):
+            for bit_idx in range(adhoc.lsb, adhoc.msb + 1):
                 connec_path = connecRepInstPath(
                     fgcg, adhoc, cell_idx, bit_idx, logical_port
                 )
