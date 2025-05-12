@@ -22,3 +22,6 @@ rep-match:
 	python3.10 $(REPEATET_MATCH) 
 rep-match-pdb:
 	python3.10 -m ipdb -c continue $(REPEATET_MATCH)
+
+clean:
+	rm -rf *.tcl
