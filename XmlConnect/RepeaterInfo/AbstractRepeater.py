@@ -40,7 +40,7 @@ def repJsonParser(
                 try:
                     rep_obj = repCls.fromJson(container, clock, rep_json)
                 except Exception as e:
-                    print(f"Fail to load {json}: {e}")
+                    print(f"Fail to load {container}/{rep_json['name']}: {e}")
                     continue
                 res.append(rep_obj)
     print(f"load {res.__len__()} valid {repCls.__name__} in total {total_rep_nr}")

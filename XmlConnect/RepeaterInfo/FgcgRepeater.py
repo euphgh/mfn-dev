@@ -79,7 +79,7 @@ class FgcgRepeater(AbstractRepeater):
         connec = f"{instPath}/{self.interconnection}_{logical_port}_{suffix}_reg"
         # connix
         rep_const_path = "NML_REG_TYPE.NMML_MULTI_REG.NML_EACH_REG"
-        connix = f"{self.instance}/{rep_const_path}[{cell_idx}].u_fgcg/rep_fgcg_out_reg"
+        connix = f"{self.instance}/{rep_const_path}[{cell_idx}].u_fgcg/fgcg_en_reg"
         return (connec, connix)
 
     def match(self) -> list[tuple[str, str]]:
