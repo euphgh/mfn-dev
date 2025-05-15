@@ -14,7 +14,7 @@ run:
 pdb:
 	python3.10 -m ipdb -c continue src/$(MAIN) $(ARGS)
 
-JSON_DIR := ../../resources/user_match/json ../../resources/xml/logical_info.yml
+JSON_DIR := ../../resources/user_match/json/repeater.json
 MPU_LOGICAL_INFO := ../../resources/xml/logical_info.yml
 REPEATET_MATCH := RepeaterMatch.py $(JSON_DIR) $(MPU_LOGICAL_INFO)
 
