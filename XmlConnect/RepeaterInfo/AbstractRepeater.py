@@ -37,12 +37,11 @@ def repJsonParser(
             rep_array = clock_field[1]
             total_rep_nr = total_rep_nr + rep_array.__len__()
             for rep_json in rep_array:
-                rep_obj = repCls.fromJson(container, clock, rep_json)
-                # try:
-                #     rep_obj = repCls.fromJson(container, clock, rep_json)
-                # except Exception as e:
-                #     print(f"Fail to load {json}: {e}")
-                #     continue
+                try:
+                    rep_obj = repCls.fromJson(container, clock, rep_json)
+                except Exception as e:
+                    print(f"Fail to load {json}: {e}")
+                    continue
                 res.append(rep_obj)
     print(f"load {res.__len__()} valid {repCls.__name__} in total {total_rep_nr}")
     return res
